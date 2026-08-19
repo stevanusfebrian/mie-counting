@@ -19,10 +19,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // persistSession is only meaningful in browser environment
     persistSession: true,
-    // storeRefreshToken is recommended when using refresh tokens
-    // (works together with persistSession)
-    storeRefreshToken: true,
+    autoRefreshToken: true,
   },
 });
