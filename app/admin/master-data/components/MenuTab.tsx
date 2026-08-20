@@ -201,6 +201,7 @@ return (
                                     setDraft(null);
                                   }}
                                   className="min-h-10 text-sm min-[850px]:text-sm"
+                                  style={{ fontSize: 0.7 + "rem" }}
                                 >
                                   cancel
                                 </button>
@@ -209,6 +210,7 @@ return (
                                   onClick={save}
                                   disabled={saving}
                                   className="min-h-10 text-sm min-[850px]:text-sm text-emerald-600"
+                                  style={{ fontSize: 0.7 + "rem" }}
                                 >
                                   {saving ? "saving..." : "save"}
                                 </button>
