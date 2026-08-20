@@ -118,7 +118,7 @@ return (
                     return (
                       <tr
                         key={item.id}
-                        className="border-t border-zinc-200 align-top"
+                        className="border-t border-zinc-200 align-middle"
                       >
                         {edit ? (
                           <>
@@ -131,7 +131,7 @@ return (
                                 className="min-h-10 w-full rounded border px-2 text-sm min-[850px]:text-sm"
                                 style={{ fontSize: 0.7 + "rem" }}
                               />
-                              
+
                               <select
                                 value={draft.kategori ?? ""}
                                 onChange={(e) =>
