@@ -17,8 +17,8 @@ export default function LogoutPage() {
         if (error) {
           setError(error.message);
         }
-      } catch (err: any) {
-        setError(err?.message ?? "Unexpected error");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Unexpected error");
       } finally {
         setLoading(false);
         // redirect to home after signout
@@ -28,12 +28,12 @@ export default function LogoutPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-      <div className="w-full max-w-sm rounded bg-white p-6 shadow">
-        <h2 className="mb-4 text-xl font-semibold">Logging out…</h2>
-        {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
-        {!error && loading && <div className="text-sm text-zinc-600">Signing out...</div>}
+    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-3 py-6 sm:px-6">
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+        <h2 className="mb-4 text-2xl font-semibold sm:text-xl">Logging out…</h2>
+        {error && <div className="mb-3 text-base text-red-600 sm:text-sm">{error}</div>}
+        {!error && loading && <div className="text-base text-zinc-600 sm:text-sm">Signing out...</div>}
       </div>
-    </div>
+    </main>
   );
 }
