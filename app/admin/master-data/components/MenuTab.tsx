@@ -123,24 +123,27 @@ return (
                         {edit ? (
                           <>
                             <td className="px-2 py-2">
-                              <select
-                                value={draft.kategori ?? ""}
-                                onChange={(e) =>
-                                  setDraft({ ...draft, kategori: e.target.value })
-                                }
-                                className="mb-2 min-h-10 w-full rounded border px-2 text-sm min-[850px]:text-sm"
-                              >
-                                {categories.map((value) => (
-                                  <option key={value}>{value}</option>
-                                ))}
-                              </select>
                               <input
                                 value={draft.nama ?? ""}
                                 onChange={(e) =>
                                   setDraft({ ...draft, nama: e.target.value })
                                 }
                                 className="min-h-10 w-full rounded border px-2 text-sm min-[850px]:text-sm"
+                                style={{ fontSize: 0.7 + "rem" }}
                               />
+                              
+                              <select
+                                value={draft.kategori ?? ""}
+                                onChange={(e) =>
+                                  setDraft({ ...draft, kategori: e.target.value })
+                                }
+                                className="mb-2 min-h-10 w-full rounded border px-2 text-sm min-[850px]:text-sm"
+                                style={{ fontSize: 0.7 + "rem" }}
+                              >
+                                {categories.map((value) => (
+                                  <option key={value}>{value}</option>
+                                ))}
+                              </select>
                             </td>
                             <td className="px-2 py-2">
                               <select
@@ -149,6 +152,7 @@ return (
                                   setDraft({ ...draft, unit: e.target.value })
                                 }
                                 className="min-h-10 w-full rounded border px-2 text-sm min-[850px]:text-sm"
+                                style={{ fontSize: 0.7 + "rem" }}
                               >
                                 {units.map((value) => (
                                   <option key={value}>{value}</option>
@@ -167,9 +171,10 @@ return (
                                   })
                                 }
                                 className="min-h-10 w-full rounded border px-2 text-sm min-[850px]:text-sm"
+                                style={{ fontSize: 0.7 + "rem" }}
                               />
                             </td>
-                            <td className="px-2 py-2">
+                            <td className="px-0.5 py-2">
                               <select
                                 value={
                                   draft.aktif === false ? "nonaktif" : "aktif"
@@ -181,6 +186,7 @@ return (
                                   })
                                 }
                                 className="min-h-10 w-full rounded border px-2 text-sm min-[850px]:text-sm"
+                                style={{ fontSize: 0.7 + "rem" }}
                               >
                                 <option value="aktif">Aktif</option>
                                 <option value="nonaktif">Nonaktif</option>
