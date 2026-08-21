@@ -105,11 +105,11 @@ return (
               >
                 <thead className="bg-zinc-50">
                   <tr>
-                    <th className="w-[30%] px-3 py-2">Nama</th>
-                    <th className="w-[16%] px-3 py-2">Unit</th>
-                    <th className="w-[20%] px-3 py-2">Harga Jual</th>
-                    <th className="w-[17%] px-3 py-2">Status</th>
-                    <th className="w-[17%] px-3 py-2">Aksi</th>
+                    <th className="w-[30%] px-3 py-2" style={{ fontSize: 0.8 + "rem" }}>Nama</th>
+                    <th className="w-[16%] px-3 py-2" style={{ fontSize: 0.8 + "rem" }}>Unit</th>
+                    <th className="w-[20%] px-3 py-2" style={{ fontSize: 0.8 + "rem" }}>Harga Jual</th>
+                    <th className="w-[17%] px-3 py-2" style={{ fontSize: 0.8 + "rem" }}>Status</th>
+                    <th className="w-[17%] px-3 py-2" style={{ fontSize: 0.8 + "rem" }}>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>

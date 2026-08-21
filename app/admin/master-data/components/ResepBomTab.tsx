@@ -44,7 +44,99 @@ export default function ResepBomTab() {
     setSavingId(null);
   };
 
-  if (loading) return <div className={`rounded-2xl border bg-white p-8 text-center text-base text-zinc-500 ${midText.sm}`}>Memuat data resep...</div>;
-  if (error && rows.length === 0) return <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-base text-red-700">{error}</div>;
-  return <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm sm:p-4"><div className="mb-4"><h2 className={`text-xl font-bold ${midText.lg}`}>Resep BOM</h2><p className={`text-base text-zinc-500 ${midText.sm}`}>Menu aktif otomatis tampil. Nilai yang belum disimpan dimulai dari 0.</p></div>{error && <div className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-base text-red-700">{error}</div>}{rows.length === 0 ? <p className="py-8 text-center text-base text-zinc-500">Belum ada menu aktif.</p> : <div className="overflow-x-auto"><table className={`w-full min-w-[700px] text-left text-base ${midText.sm}`}><thead className="bg-zinc-50"><tr><th className="w-[45%] px-3 py-2">Nama Menu</th><th className="w-[20%] px-3 py-2">Pangsit (pcs)</th><th className="w-[20%] px-3 py-2">Bakso (pcs)</th><th className="w-[15%] px-3 py-2">Aksi</th></tr></thead><tbody>{rows.map((row) => <tr key={row.menu_item_id} className="border-t border-zinc-200"><td className="px-3 py-2"><div className="font-medium">{row.nama}</div><div className="text-sm text-zinc-500">{row.kategori}</div></td><td className="px-2 py-2"><input type="number" min="0" value={row.pangsit_pcs} onChange={(e) => updateValue(row.menu_item_id, "pangsit_pcs", Number(e.target.value))} className="min-h-10 w-full rounded border px-2 text-base" /></td><td className="px-2 py-2"><input type="number" min="0" value={row.bakso_pcs} onChange={(e) => updateValue(row.menu_item_id, "bakso_pcs", Number(e.target.value))} className="min-h-10 w-full rounded border px-2 text-base" /></td><td className="px-2 py-2"><button type="button" onClick={() => save(row)} disabled={savingId === row.menu_item_id} className="min-h-10 text-base font-medium text-emerald-600 disabled:opacity-60">{savingId === row.menu_item_id ? "saving..." : "save"}</button></td></tr>)}</tbody></table></div>}</div>;
+  if (loading) return <div className={`rounded-2xl border bg-white p-8 text-center text-sm text-zinc-500 ${midText.sm}`}>Memuat data resep...</div>;
+  if (error && rows.length === 0) return <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 min-[850px]:text-base">{error}</div>;
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm sm:p-4">
+      <div className="mb-4">
+        <h2 className={`text-xl font-bold ${midText.lg}`}>Resep BOM</h2>
+        <p
+          className={`text-sm text-zinc-500 min-[850px]:text-base ${midText.sm}`}
+        >
+          Menu aktif otomatis tampil. Nilai yang belum disimpan dimulai dari 0.
+        </p>
+      </div>
+      {error && (
+        <div className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 min-[850px]:text-base">
+          {error}
+        </div>
+      )}
+      {rows.length === 0 ? (
+        <p className="py-8 text-center text-sm text-zinc-500 min-[850px]:text-base">
+          Belum ada menu aktif.
+        </p>
+      ) : (
+        <div className="overflow-x-hidden">
+          <table
+            className={`w-full table-fixed text-left text-sm min-[850px]:text-base ${midText.sm}`}
+          >
+            <thead className="bg-zinc-50">
+              <tr>
+                <th className="w-[45%] px-2 py-2 sm:px-3" style={{ fontSize: 0.8 + "rem" }}>Nama Menu</th>
+                <th className="w-[20%] px-2 py-2 sm:px-3" style={{ fontSize: 0.8 + "rem" }}>Pangsit (pcs)</th>
+                <th className="w-[20%] px-2 py-2 sm:px-3" style={{ fontSize: 0.8 + "rem" }}>Bakso (pcs)</th>
+                <th className="w-[15%] px-2 py-2 sm:px-3" style={{ fontSize: 0.8 + "rem" }}>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.menu_item_id}
+                  className="border-t border-zinc-200 align-middle"
+                >
+                  <td className="break-words px-2 py-2 sm:px-3">
+                    <div className="font-medium text-xs" >{row.nama}</div>
+                    <div className="text-xs text-zinc-500 sm:text-sm">
+                      {row.kategori}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 sm:px-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.pangsit_pcs}
+                      onChange={(e) =>
+                        updateValue(
+                          row.menu_item_id,
+                          "pangsit_pcs",
+                          Number(e.target.value),
+                        )
+                      }
+                      className="min-h-10 w-full rounded border px-1 text-sm min-[850px]:px-2 min-[850px]:text-base"
+                    />
+                  </td>
+                  <td className="px-2 py-2 sm:px-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.bakso_pcs}
+                      onChange={(e) =>
+                        updateValue(
+                          row.menu_item_id,
+                          "bakso_pcs",
+                          Number(e.target.value),
+                        )
+                      }
+                      className="min-h-10 w-full rounded border px-1 text-sm min-[850px]:px-2 min-[850px]:text-base"
+                    />
+                  </td>
+                  <td className="px-2 py-2 sm:px-3">
+                    <button
+                      type="button"
+                      onClick={() => save(row)}
+                      disabled={savingId === row.menu_item_id}
+                      className="min-h-10 text-sm font-medium text-emerald-600 min-[850px]:text-base disabled:opacity-60"
+                    >
+                      {savingId === row.menu_item_id ? "saving..." : "save"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
 }
