@@ -20,6 +20,12 @@ export default function Home() {
           >
             Master Menu
           </a>
+          <a
+            href="/admin/log-harian"
+            className="flex min-h-12 items-center justify-center rounded-xl border border-zinc-200 bg-white px-5 py-4 text-base font-medium text-zinc-800 transition hover:bg-zinc-100 sm:text-sm"
+          >
+            Input Penjualan &amp; Titipan
+          </a>
         </div>
       </div>
     </main>
