@@ -166,36 +166,153 @@ export default function LogHarianPage() {
     <main className="min-h-screen bg-zinc-50 px-3 py-4 text-zinc-900 sm:px-6 sm:py-6">
       <div className="mx-auto max-w-6xl pb-24">
         <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500 sm:text-sm">Modul 3</p><h1 className={`text-2xl font-bold ${midText.xl}`}>Input Penjualan &amp; Titipan</h1></div>
-          <Link href="/" className="min-h-11 rounded border border-zinc-300 bg-white px-4 py-2 text-center text-sm font-medium hover:bg-zinc-100">Kembali ke Dashboard</Link>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500 sm:text-sm">
+              Modul 3
+            </p>
+            <h1 className={`text-2xl font-bold ${midText.xl}`}>
+              Input Penjualan &amp; Titipan
+            </h1>
+          </div>
+          <Link
+            href="/"
+            className="min-h-11 rounded border border-zinc-300 bg-white px-4 py-2 text-center text-sm font-medium hover:bg-zinc-100"
+          >
+            Kembali ke Dashboard
+          </Link>
         </header>
         <div className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <label className={`block text-sm font-medium ${midText.sm}`}>Tanggal log<input type="date" value={tanggal} onChange={(event) => { setTanggal(event.target.value); setSuccess(null); }} className="mt-1 min-h-11 w-full rounded border border-zinc-300 px-3 text-base sm:max-w-xs" /></label>
+          <label className={`block text-sm font-medium ${midText.sm}`}>
+            Tanggal log
+            <input
+              type="date"
+              value={tanggal}
+              onChange={(event) => {
+                setTanggal(event.target.value);
+                setSuccess(null);
+              }}
+              className="mt-1 min-h-11 w-full rounded border border-zinc-300 px-3 text-base sm:max-w-xs"
+            />
+          </label>
         </div>
-        {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-        {success && <div className="mb-4 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{success}</div>}
-        <nav className="mb-4 flex gap-1 overflow-x-auto border-b border-zinc-200" aria-label="Kategori log">
-          {MENU_TABS.map((tab) => <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`min-h-12 shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${activeTab === tab ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}>{tab}</button>)}
+        {error && (
+          <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+            {success}
+          </div>
+        )}
+        <nav
+          className="mb-4 flex gap-1 overflow-x-auto border-b border-zinc-200"
+          aria-label="Kategori log"
+        >
+          {MENU_TABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`min-h-12 shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${activeTab === tab ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}
+            >
+              {tab}
+            </button>
+          ))}
         </nav>
         <section className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm sm:p-4">
-          {loading ? <p className="py-8 text-center text-sm text-zinc-500">Memuat data log...</p> : visibleRows.length === 0 ? <p className="py-8 text-center text-sm text-zinc-500">Belum ada item aktif pada kategori ini.</p> : <div className="space-y-3">
-            {visibleRows.map((row) => <div key={row.key} className="border-b border-zinc-100 pb-3 last:border-0">
-              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-start">
-                <div className="min-w-0"><p className="break-words text-sm font-medium">{row.nama}</p><p className="text-xs text-zinc-500">{row.unit}{row.additional ? " | harga lain" : ""}</p></div>
-                <input type="number" min="1" step="1" inputMode="numeric" placeholder="Qty" value={row.qty} onChange={(event) => updateRow(row.key, { qty: event.target.value })} className="min-h-11 rounded border px-3 text-base" aria-label={`Qty ${row.nama}`} />
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <button type="button" onClick={() => updateRow(row.key, { useOverride: !row.useOverride, override: row.useOverride ? "" : String(row.hargaNormal) })} className="min-h-10 rounded border border-zinc-300 px-2 text-zinc-700">{row.useOverride ? "Harga normal" : "Harga lain"}</button>
-                  {row.additional && <button type="button" onClick={() => removeRow(row.key)} className="min-h-10 text-red-600">Hapus baris</button>}
-                  <button type="button" onClick={() => addRow(row)} className="min-h-10 text-emerald-700">+ tambah harga lain</button>
+          {loading ? (
+            <p className="py-8 text-center text-sm text-zinc-500">
+              Memuat data log...
+            </p>
+          ) : visibleRows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-zinc-500">
+              Belum ada item aktif pada kategori ini.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {visibleRows.map((row) => (
+                <div
+                  key={row.key}
+                  className={`border-b border-zinc-300 pb-3 last:border-0 ${row.additional ? "ml-4 sm:ml-5" : ""}`}
+                >
+                  <div className={`${row.additional ? "grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_8rem_auto] sm:items-start" : "grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-start"}`}>
+                    <div className="min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="break-words text-sm font-medium">{row.nama}</p>
+                        {row.additional && <button type="button" onClick={() => removeRow(row.key)} className="h-4 shrink-0 text-sm text-red-600 sm:hidden">Hapus</button>}
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        {row.unit}
+                        {row.additional ? " | harga lain" : ""}
+                      </p>
+                    </div>
+                    {row.additional && <input type="number" min="0" step="1" value={row.override} onChange={(event) => updateRow(row.key, { override: event.target.value })} placeholder="Harga jual khusus" className="order-2 h-8 rounded border px-2 text-[11px] placeholder:text-[11px] sm:order-none" aria-label={`Harga jual khusus ${row.nama}`} />}
+                    {row.additional && <input value={row.catatan} onChange={(event) => updateRow(row.key, { catatan: event.target.value })} placeholder="Catatan / alasan" className="order-3 h-8 rounded border px-2 text-[11px] placeholder:text-[11px] sm:order-none" aria-label={`Catatan ${row.nama}`} />}
+                    {!row.additional && <input type="number" min="1" step="1" inputMode="numeric" placeholder="Qty" value={row.qty} onChange={(event) => updateRow(row.key, { qty: event.target.value })} className="h-8 rounded border px-2 text-[11px] placeholder:text-[11px]" aria-label={`Qty ${row.nama}`} />}
+                    {row.additional && <input type="number" min="1" step="1" inputMode="numeric" placeholder="Qty" value={row.qty} onChange={(event) => updateRow(row.key, { qty: event.target.value })} className="order-4 h-8 rounded border px-2 text-[11px] placeholder:text-[11px] sm:order-none" aria-label={`Qty ${row.nama}`} />}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      {!row.additional && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRow(row.key, {
+                              useOverride: !row.useOverride,
+                              override: row.useOverride
+                                ? ""
+                                : String(row.hargaNormal),
+                            })
+                          }
+                          className="h-8 rounded border border-zinc-300 px-2 text-zinc-700"
+                        >
+                          {row.useOverride ? "Harga normal" : "Harga lain"}
+                        </button>
+                      )}
+                      {row.additional && (
+                        <button
+                          type="button"
+                          onClick={() => removeRow(row.key)}
+                          className="hidden h-8 text-xs text-red-600 sm:inline"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                      {!row.additional && (
+                        <button
+                          type="button"
+                          onClick={() => addRow(row)}
+                          className="h-8 text-emerald-700"
+                        >
+                          + Harga custom
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {row.useOverride && !row.additional && <div className="mt-2 grid gap-2 sm:grid-cols-2"><input type="number" min="0" step="1" value={row.override} onChange={(event) => updateRow(row.key, { override: event.target.value })} placeholder="Harga jual khusus" className="h-8 rounded border px-2 text-[11px] placeholder:text-[11px]" /><input value={row.catatan} onChange={(event) => updateRow(row.key, { catatan: event.target.value })} placeholder="Catatan / alasan" className="h-8 rounded border px-2 text-[11px] placeholder:text-[11px]" /></div>}
+                  {rowErrors[row.key] && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {rowErrors[row.key]}
+                    </p>
+                  )}
                 </div>
-              </div>
-              {row.useOverride && <div className="mt-2 grid gap-2 sm:grid-cols-2"><input type="number" min="0" step="1" value={row.override} onChange={(event) => updateRow(row.key, { override: event.target.value })} placeholder={row.kind === "titipan" ? "Harga jual khusus" : "Harga jual khusus"} className="min-h-10 rounded border px-3 text-sm" /><input value={row.catatan} onChange={(event) => updateRow(row.key, { catatan: event.target.value })} placeholder="Catatan / alasan" className="min-h-10 rounded border px-3 text-sm" /></div>}
-              {rowErrors[row.key] && <p className="mt-1 text-xs text-red-600">{rowErrors[row.key]}</p>}
-            </div>)}
-          </div>}
+              ))}
+            </div>
+          )}
         </section>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:px-6"><div className="mx-auto flex max-w-6xl justify-end"><button type="button" onClick={save} disabled={loading || saving} className="min-h-12 w-full rounded bg-zinc-900 px-6 text-base font-medium text-white disabled:opacity-60 sm:w-auto">{saving ? "Menyimpan..." : "Simpan semua log"}</button></div></div>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-6xl justify-end">
+          <button
+            type="button"
+            onClick={save}
+            disabled={loading || saving}
+            className="min-h-12 w-full rounded bg-zinc-900 px-6 text-base font-medium text-white disabled:opacity-60 sm:w-auto"
+          >
+            {saving ? "Menyimpan..." : "Simpan semua log"}
+          </button>
+        </div>
+      </div>
     </main>
   );
+
 }
