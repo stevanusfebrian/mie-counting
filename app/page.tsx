@@ -26,6 +26,12 @@ export default function Home() {
           >
             Input Penjualan &amp; Titipan
           </a>
+          <a
+            href="/admin/log-pengeluaran"
+            className="flex min-h-12 items-center justify-center rounded-xl border border-zinc-200 bg-white px-5 py-4 text-base font-medium text-zinc-800 hover:bg-zinc-100 sm:text-sm"
+          >
+            Log Pengeluaran
+          </a>
         </div>
       </div>
     </main>
