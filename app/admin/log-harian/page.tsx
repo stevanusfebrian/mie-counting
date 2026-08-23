@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { midText } from "../../../lib/styles/responsive";
@@ -11,6 +12,9 @@ type Kind = "menu" | "titipan";
 
 type MenuItem = { id: string; nama: string; unit: string; kategori: string; harga_jual: number | string };
 type TitipanItem = { id: string; nama: string; unit: string; harga_beli: number | string; harga_jual: number | string };
+type SummaryMenu = { id: string; kategori: string };
+type SummarySalesRow = { menu_item_id?: string; qty: number | string; pangsit_terpakai?: number | string; bakso_terpakai?: number | string };
+type SummaryConsignmentRow = { titipan_item_id?: string; qty: number | string };
 type InputRow = {
   key: string;
   itemId: string;
@@ -30,6 +34,12 @@ type ExistingRow = { menu_item_id?: string; titipan_item_id?: string; qty: numbe
 
 const today = () => new Date().toISOString().slice(0, 10);
 const numberValue = (value: number | string | null | undefined) => Number(value ?? 0);
+const normalizeCategory = (value: string | null | undefined) => value?.trim().toLowerCase();
+const shiftDate = (date: string, days: number) => {
+  const nextDate = new Date(`${date}T00:00:00.000Z`);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return nextDate.toISOString().slice(0, 10);
+};
 
 function makeRow(item: MenuItem | TitipanItem, kind: Kind, additional = false): InputRow {
   const isMenu = kind === "menu";
@@ -61,18 +71,46 @@ export default function LogHarianPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [summary, setSummary] = useState({
+    menu: { Mie: 0, "Mie Lebar": 0, Kwetiau: 0, Bihun: 0, Pangsit: 0, Bakso: 0 },
+    titipan: {} as Record<string, number>,
+  });
 
   const load = async (selectedDate: string) => {
     setLoading(true);
     setError(null);
-    const [{ data: menuData, error: menuError }, { data: titipanData, error: titipanError }, { data: salesData, error: salesError }, { data: consignmentData, error: consignmentError }] = await Promise.all([
-      supabase.from("ms_menu").select("id, nama, unit, kategori, harga_jual").eq("aktif", true).order("display_order", { ascending: true }),
-      supabase.from("ms_titipan").select("id, nama, unit, harga_beli, harga_jual").eq("aktif", true).order("display_order", { ascending: true }),
-      supabase.from("log_penjualan").select("menu_item_id, qty, harga_snapshot, catatan").eq("tanggal", selectedDate),
-      supabase.from("log_titipan").select("titipan_item_id, qty, harga_jual_snapshot, catatan").eq("tanggal", selectedDate),
-    ]);
+const [
+  { data: menuData, error: menuError },
+  { data: titipanData, error: titipanError },
+  { data: salesData, error: salesError },
+  { data: consignmentData, error: consignmentError },
+  { data: summaryMenuData, error: summaryMenuError },
+] = await Promise.all([
+  supabase
+    .from("ms_menu")
+    .select("id, nama, unit, kategori, harga_jual")
+    .eq("aktif", true)
+    .order("display_order", { ascending: true }),
+  supabase
+    .from("ms_titipan")
+    .select("id, nama, unit, harga_beli, harga_jual")
+    .eq("aktif", true)
+    .order("display_order", { ascending: true }),
+  supabase
+    .from("log_penjualan")
+    .select(
+      "menu_item_id, qty, harga_snapshot, catatan, pangsit_terpakai, bakso_terpakai",
+    )
+    .eq("tanggal", selectedDate),
+  supabase
+    .from("log_titipan")
+    .select("titipan_item_id, qty, harga_jual_snapshot, catatan")
+    .eq("tanggal", selectedDate),
+  supabase.from("ms_menu").select("id, kategori"),
+]);
 
-    const fetchError = menuError ?? titipanError ?? salesError ?? consignmentError;
+
+    const fetchError = menuError ?? titipanError ?? salesError ?? consignmentError ?? summaryMenuError;
     if (fetchError) {
       setError(fetchError.message);
       setLoading(false);
@@ -81,6 +119,24 @@ export default function LogHarianPage() {
 
     const nextMenus = (menuData ?? []) as MenuItem[];
     const nextTitipan = (titipanData ?? []) as TitipanItem[];
+    const menuCategories = new Map<string, string | undefined>();
+    for (const item of nextMenus as SummaryMenu[]) menuCategories.set(String(item.id), normalizeCategory(item.kategori));
+    for (const item of (summaryMenuData ?? []) as SummaryMenu[]) menuCategories.set(String(item.id), normalizeCategory(item.kategori));
+    const menuSummary = { Mie: 0, "Mie Lebar": 0, Kwetiau: 0, Bihun: 0, Pangsit: 0, Bakso: 0 };
+    for (const sale of (salesData ?? []) as SummarySalesRow[]) {
+      const category = menuCategories.get(String(sale.menu_item_id ?? ""));
+      if (category === "mie") menuSummary.Mie += numberValue(sale.qty);
+      if (category === "mie lebar") menuSummary["Mie Lebar"] += numberValue(sale.qty);
+      if (category === "kwetiau") menuSummary.Kwetiau += numberValue(sale.qty);
+      if (category === "bihun") menuSummary.Bihun += numberValue(sale.qty);
+      menuSummary.Pangsit += numberValue(sale.pangsit_terpakai);
+      menuSummary.Bakso += numberValue(sale.bakso_terpakai);
+    }
+    const titipanSummary: Record<string, number> = {};
+    for (const item of nextTitipan) titipanSummary[item.id] = 0;
+    for (const sale of (consignmentData ?? []) as SummaryConsignmentRow[]) {
+      if (sale.titipan_item_id && sale.titipan_item_id in titipanSummary) titipanSummary[sale.titipan_item_id] += numberValue(sale.qty);
+    }
     const nextRows = [
       ...nextMenus.map((item) => makeRow(item, "menu")),
       ...nextTitipan.map((item) => makeRow(item, "titipan")),
@@ -113,6 +169,7 @@ export default function LogHarianPage() {
     }
     setMenus(nextMenus);
     setTitipan(nextTitipan);
+    setSummary({ menu: menuSummary, titipan: titipanSummary });
     setRows(hydrated);
     setLoading(false);
   };
@@ -184,15 +241,39 @@ export default function LogHarianPage() {
         <div className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <label className={`block text-sm font-medium ${midText.sm}`}>
             Tanggal log
-            <input
-              type="date"
-              value={tanggal}
-              onChange={(event) => {
-                setTanggal(event.target.value);
-                setSuccess(null);
-              }}
-              className="mt-1 min-h-11 w-full rounded border border-zinc-300 px-3 text-base sm:max-w-xs"
-            />
+            <div className="mt-1 flex w-full items-center gap-2 sm:max-w-md">
+              <input
+                type="date"
+                value={tanggal}
+                onChange={(event) => {
+                  setTanggal(event.target.value);
+                  setSuccess(null);
+                }}
+                className="min-h-11 min-w-0 flex-1 rounded border border-zinc-300 px-3 text-base"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setTanggal((current) => shiftDate(current, -1));
+                  setSuccess(null);
+                }}
+                aria-label="Tanggal sebelumnya"
+                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded border border-zinc-300 bg-white hover:bg-zinc-100"
+              >
+                <Image src="/vector%20date.png" alt="" width={12} height={20} className="h-5 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTanggal((current) => shiftDate(current, 1));
+                  setSuccess(null);
+                }}
+                aria-label="Tanggal berikutnya"
+                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded border border-zinc-300 bg-white hover:bg-zinc-100"
+              >
+                <Image src="/vector%20date.png" alt="" width={12} height={20} className="h-5 w-3 rotate-180" />
+              </button>
+            </div>
           </label>
         </div>
         {error && (
@@ -205,6 +286,28 @@ export default function LogHarianPage() {
             {success}
           </div>
         )}
+        <section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <h2 className={`mb-4 text-xl font-bold ${midText.lg}`}>Ringkasan Total Terjual</h2>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-x-8">
+            <div className="space-y-2">
+              {(["Mie", "Mie Lebar", "Kwetiau", "Bihun", "Pangsit", "Bakso"] as const).map((category) => (
+                <div key={category} className="flex items-center gap-2 text-xs sm:text-sm">
+                  <span>{category}</span>
+                  <strong>{summary.menu[category]}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              {titipan.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 text-xs sm:text-sm">
+                  <span>{item.nama}</span>
+                  <strong>{summary.titipan[item.id] ?? 0}</strong>
+                </div>
+              ))}
+              {titipan.length === 0 && <p className="text-xs text-zinc-500 sm:text-sm">Belum ada item titipan aktif.</p>}
+            </div>
+          </div>
+        </section>
         <nav
           className="mb-4 flex gap-1 overflow-x-auto border-b border-zinc-200"
           aria-label="Kategori log"
