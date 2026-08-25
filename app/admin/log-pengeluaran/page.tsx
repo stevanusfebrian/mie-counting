@@ -35,7 +35,7 @@ export default function LogPengeluaranPage() {
     setError(null);
     const [{ data: categoryData, error: categoryError }, { data: historyData, error: historyError }] = await Promise.all([
       supabase.from("ms_pengeluaran").select("id, nama").eq("aktif", true).order("nama", { ascending: true }),
-      supabase.from("log_pengeluaran").select("id, pengeluaran_id, deskripsi, jumlah").eq("tanggal", selectedDate).order("created_at", { ascending: false }),
+      supabase.from("log_pengeluaran").select("id, pengeluaran_id, deskripsi, jumlah").eq("tanggal", selectedDate).eq("is_deleted", false).order("created_at", { ascending: false }),
     ]);
     const fetchError = categoryError ?? historyError;
     if (fetchError) setError(fetchError.message);
@@ -91,18 +91,20 @@ export default function LogPengeluaranPage() {
     }
     setHistoryAction(true);
     setError(null);
-    const { error: updateError } = await supabase.from("log_pengeluaran").update({ pengeluaran_id: editing.pengeluaran_id, deskripsi: editing.deskripsi?.trim() || null, jumlah: Number(editing.jumlah) }).eq("id", editing.id);
+    const { data: userData } = await supabase.auth.getUser();
+    const { error: updateError } = await supabase.from("log_pengeluaran").update({ pengeluaran_id: editing.pengeluaran_id, deskripsi: editing.deskripsi?.trim() || null, jumlah: Number(editing.jumlah), updated_by: userData.user?.id ?? null, updated_at: new Date().toISOString() }).eq("id", editing.id);
     if (updateError) setError(updateError.message);
     else { setEditing(null); await load(tanggal); }
     setHistoryAction(false);
   };
 
-  const remove = async (id: string) => {
+  const handleSoftDelete = async (id: string) => {
     if (!window.confirm("Hapus transaksi pengeluaran ini?")) return;
     setHistoryAction(true);
     setError(null);
-    const { error: deleteError } = await supabase.from("log_pengeluaran").delete().eq("id", id);
-    if (deleteError) setError(deleteError.message);
+    const { data: userData } = await supabase.auth.getUser();
+    const { error: updateError } = await supabase.from("log_pengeluaran").update({ is_deleted: true, updated_by: userData.user?.id ?? null, updated_at: new Date().toISOString() }).eq("id", id);
+    if (updateError) setError(updateError.message);
     else await load(tanggal);
     setHistoryAction(false);
   };
@@ -344,7 +346,7 @@ export default function LogPengeluaranPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void remove(row.id)}
+                          onClick={() => void handleSoftDelete(row.id)}
                           disabled={historyAction}
                           className="min-h-11 text-sm text-red-600"
                         >
