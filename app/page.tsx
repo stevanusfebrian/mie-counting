@@ -32,6 +32,12 @@ export default function Home() {
           >
             Log Pengeluaran
           </a>
+          <a
+            href="/admin/dashboard-laba-rugi"
+            className="flex min-h-12 items-center justify-center rounded-xl border border-emerald-700 bg-emerald-700 px-5 py-4 text-base font-medium text-white hover:bg-emerald-800 sm:text-sm"
+          >
+            Dashboard Laba Rugi
+          </a>
         </div>
       </div>
     </main>
