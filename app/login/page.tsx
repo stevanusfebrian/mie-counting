@@ -44,23 +44,25 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6"
       >
-        <h2 className="mb-4 text-2xl font-semibold sm:text-xl">Login</h2>
+        <h2 className="mb-4 text-2xl font-semibold text-zinc-900 sm:text-xl">Login</h2>
 
-        <label className="mb-2 block text-base font-medium sm:text-sm">Email</label>
+        <label className="mb-2 block text-base font-medium text-zinc-900 sm:text-sm">Email</label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mb-3 min-h-12 w-full rounded-lg border border-zinc-300 px-3 py-2 text-base"
+          placeholder="Masukkan email"
+          className="mb-3 min-h-12 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none"
           required
         />
 
-        <label className="mb-2 block text-base font-medium sm:text-sm">Password</label>
+        <label className="mb-2 block text-base font-medium text-zinc-900 sm:text-sm">Password</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mb-3 min-h-12 w-full rounded-lg border border-zinc-300 px-3 py-2 text-base"
+          placeholder="Masukkan password"
+          className="mb-3 min-h-12 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none"
           required
         />
 
@@ -68,7 +70,7 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="min-h-12 w-full rounded-lg bg-foreground px-4 py-2 text-base font-medium text-white sm:text-sm"
+          className="min-h-12 w-full cursor-pointer rounded-lg bg-zinc-900 px-4 py-2 text-base font-medium text-white transition hover:bg-zinc-800 sm:text-sm"
           disabled={loading}
         >
           {loading ? "Logging in…" : "Login"}
