@@ -72,7 +72,7 @@ export default function LogHarianPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState({
-    menu: { Mie: 0, "Mie Lebar": 0, Kwetiau: 0, Bihun: 0, Pangsit: 0, Bakso: 0 },
+    menu: { Mie: 0, "Mie Lebar": 0, Kwetiau: 0, Bihun: 0, Minum: 0, Pangsit: 0, Bakso: 0 },
     titipan: {} as Record<string, number>,
   });
 
@@ -122,13 +122,14 @@ const [
     const menuCategories = new Map<string, string | undefined>();
     for (const item of nextMenus as SummaryMenu[]) menuCategories.set(String(item.id), normalizeCategory(item.kategori));
     for (const item of (summaryMenuData ?? []) as SummaryMenu[]) menuCategories.set(String(item.id), normalizeCategory(item.kategori));
-    const menuSummary = { Mie: 0, "Mie Lebar": 0, Kwetiau: 0, Bihun: 0, Pangsit: 0, Bakso: 0 };
+    const menuSummary = { Mie: 0, "Mie Lebar": 0, Kwetiau: 0, Bihun: 0, Minum: 0, Pangsit: 0, Bakso: 0 };
     for (const sale of (salesData ?? []) as SummarySalesRow[]) {
       const category = menuCategories.get(String(sale.menu_item_id ?? ""));
       if (category === "mie") menuSummary.Mie += numberValue(sale.qty);
       if (category === "mie lebar") menuSummary["Mie Lebar"] += numberValue(sale.qty);
       if (category === "kwetiau") menuSummary.Kwetiau += numberValue(sale.qty);
       if (category === "bihun") menuSummary.Bihun += numberValue(sale.qty);
+      if (category === "minum") menuSummary.Minum += numberValue(sale.qty);
       menuSummary.Pangsit += numberValue(sale.pangsit_terpakai);
       menuSummary.Bakso += numberValue(sale.bakso_terpakai);
     }
@@ -291,12 +292,24 @@ const [
           <h2 className={`mb-4 text-xl font-bold ${midText.lg}`}>Ringkasan Total Terjual</h2>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-x-8">
             <div className="space-y-2">
-              {(["Mie", "Mie Lebar", "Kwetiau", "Bihun", "Pangsit", "Bakso"] as const).map((category) => (
-                <div key={category} className="flex items-center gap-2 text-xs sm:text-sm">
-                  <span>{category}</span>
-                  <strong>{summary.menu[category]}</strong>
-                </div>
-              ))}
+              {(["Mie", "Mie Lebar", "Kwetiau", "Bihun", "Minum", "Pangsit", "Bakso"] as const).map((category) => {
+                const unit = category === "Minum"
+                  ? "(gelas)"
+                  : ["Mie", "Mie Lebar", "Kwetiau", "Bihun"].includes(category)
+                    ? "(porsi)"
+                    : category === "Pangsit" || category === "Bakso"
+                      ? "(pcs)"
+                      : "";
+                return (
+                  <div key={category} className="flex items-center gap-2 text-xs sm:text-sm">
+                    <span>{category}</span>
+                    <strong>
+                      {summary.menu[category]}
+                    </strong>
+                    <span className="text-zinc-400">{unit}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className="space-y-2">
               {titipan.map((item) => (
