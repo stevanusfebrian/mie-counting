@@ -32,7 +32,10 @@ export default function DashboardLabaRugiPage() {
   const [endDate, setEndDate] = useState(initialToday);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sales, setSales] = useState(0);
+  const [countMakan, setCountMakan] = useState(0);
+  const [countMinum, setCountMinum] = useState(0);
   const [consignmentMargin, setConsignmentMargin] = useState(0);
+  const [consignmentQty, setConsignmentQty] = useState(0);
   const [expenseTotals, setExpenseTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,13 +49,14 @@ export default function DashboardLabaRugiPage() {
     }
     setLoading(true);
     setError(null);
-    const [{ data: categoryData, error: categoryError }, { data: salesData, error: salesError }, { data: marginData, error: marginError }, { data: expenseData, error: expenseError }] = await Promise.all([
+    const [{ data: categoryData, error: categoryError }, { data: menuData, error: menuError }, { data: salesData, error: salesError }, { data: marginData, error: marginError }, { data: expenseData, error: expenseError }] = await Promise.all([
       supabase.from("ms_pengeluaran").select("id, nama").eq("aktif", true).order("nama", { ascending: true }),
-      supabase.from("log_penjualan").select("total").gte("tanggal", startDate).lte("tanggal", endDate),
-      supabase.from("log_titipan").select("margin").gte("tanggal", startDate).lte("tanggal", endDate),
+      supabase.from("ms_menu").select("id, kategori").eq("aktif", true),
+      supabase.from("log_penjualan").select("menu_item_id, qty, total").gte("tanggal", startDate).lte("tanggal", endDate),
+      supabase.from("log_titipan").select("margin, qty").gte("tanggal", startDate).lte("tanggal", endDate),
       supabase.from("log_pengeluaran").select("pengeluaran_id, jumlah").gte("tanggal", startDate).lte("tanggal", endDate),
     ]);
-    const fetchError = categoryError ?? salesError ?? marginError ?? expenseError;
+    const fetchError = categoryError ?? menuError ?? salesError ?? marginError ?? expenseError;
     if (fetchError) {
       setError(fetchError.message);
       setLoading(false);
@@ -62,9 +66,29 @@ export default function DashboardLabaRugiPage() {
       result[row.pengeluaran_id] = (result[row.pengeluaran_id] ?? 0) + numberValue(row.jumlah);
       return result;
     }, {});
+    const menuCategoryMap = new Map((menuData ?? []).map((row) => [row.id, String(row.kategori ?? "").trim()]));
+    const salesEntries = (salesData ?? []) as Array<{ menu_item_id?: string | null; qty?: number | string | null; total?: number | string | null }>;
+    const countMakanValue = salesEntries.reduce((sum, row) => {
+      const category = (menuCategoryMap.get(String(row.menu_item_id ?? "")) ?? "").toLowerCase();
+      if (["mie", "mie lebar", "kwetiau", "bihun", "lain-lain", "lain lain"].includes(category)) {
+        return sum + numberValue(row.qty);
+      }
+      return sum;
+    }, 0);
+    const countMinumValue = salesEntries.reduce((sum, row) => {
+      const category = (menuCategoryMap.get(String(row.menu_item_id ?? "")) ?? "").toLowerCase();
+      if (category === "minum") {
+        return sum + numberValue(row.qty);
+      }
+      return sum;
+    }, 0);
+
     setCategories((categoryData ?? []) as Category[]);
-    setSales(((salesData ?? []) as AmountRow[]).reduce((sum, row) => sum + numberValue(row.total), 0));
+    setSales(salesEntries.reduce((sum, row) => sum + numberValue(row.total), 0));
+    setCountMakan(countMakanValue);
+    setCountMinum(countMinumValue);
     setConsignmentMargin(((marginData ?? []) as AmountRow[]).reduce((sum, row) => sum + numberValue(row.margin), 0));
+    setConsignmentQty(((marginData ?? []) as Array<{ qty?: number | string | null }>).reduce((sum, row) => sum + numberValue(row.qty), 0));
     setExpenseTotals(totals);
     setLoading(false);
   }, [endDate, startDate, validRange]);
@@ -100,9 +124,21 @@ export default function DashboardLabaRugiPage() {
   const totalPersonal = sumCategories(personalExpenses);
   const netCash = operatingProfit - totalPersonal;
 
-  const metricRow = (label: string, value: number, emphasis = false) => (
+  const metricRow = (label: string, value: number, emphasis = false, counts: Array<{ count: number; label: string }> = []) => (
     <div className={`flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-sm last:border-b-0 sm:py-3 sm:text-sm ${emphasis ? "font-bold text-zinc-950" : "text-zinc-700"}`} style={{ fontSize: 0.75 + "rem" }}>
-      <span>{label}</span><span className="shrink-0 tabular-nums">{amount(value)}</span>
+      <div className="flex min-w-0 flex-col">
+        <span>{label}</span>
+        {counts.length > 0 && (
+          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-zinc-500">
+            {counts.map(({ count, label: countLabel }) => (
+              <span key={countLabel}>
+                {count} {countLabel}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <span className="shrink-0 tabular-nums">{amount(value)}</span>
     </div>
   );
 
@@ -220,19 +256,19 @@ export default function DashboardLabaRugiPage() {
           </div>
         )}
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           <div className="contents lg:block lg:space-y-5">
-            <section className="order-1 self-start rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm lg:order-1">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className={`text-base font-bold ${midText.lg}`}>Laba Usaha</h2>
+            <section className="order-1 self-start rounded-2xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm lg:order-1">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className={`text-sm font-bold ${midText.lg}`}>Laba Usaha</h2>
                 <span className="text-base font-bold tabular-nums text-emerald-800">
                   {amount(operatingProfit)}
                 </span>
               </div>
             </section>
-            <section className="order-2 rounded-2xl border-2 border-zinc-900 bg-zinc-900 p-5 text-white shadow-sm lg:order-2">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className={`text-base font-bold ${midText.lg}`}>
+            <section className="order-2 rounded-2xl border-2 border-zinc-900 bg-zinc-900 p-3 text-white shadow-sm lg:order-2">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className={`text-sm font-bold ${midText.lg}`}>
                   Sisa Kas / Laba Bersih
                 </h2>
                 <span className="text-base font-bold tabular-nums text-emerald-300">
@@ -242,9 +278,14 @@ export default function DashboardLabaRugiPage() {
             </section>
             <section className="order-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-3">
               <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>Pendapatan</h2>
-              {metricRow("Penjualan Menu & Add-On", sales)}
-              {metricRow("Margin Titipan", consignmentMargin)}
-              {metricRow("Total Pendapatan", totalRevenue, true)}
+              <div className="divide-y divide-zinc-200">
+                {metricRow("Penjualan Menu & Add-On", sales, false, [
+                  { count: countMakan, label: "porsi" },
+                  { count: countMinum, label: "gelas" },
+                ])}
+                {metricRow("Margin Titipan", consignmentMargin, false, [{ count: consignmentQty, label: "item" }])}
+                {metricRow("Total Pendapatan", totalRevenue, true)}
+              </div>
             </section>
           </div>
 
@@ -253,23 +294,27 @@ export default function DashboardLabaRugiPage() {
               <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
                 Beban Usaha
               </h2>
-              {businessExpenses.map((category) => (
-                <div key={category.id}>
-                  {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
-                </div>
-              ))}
-              {metricRow("Total Beban Usaha", totalBusinessExpenses, true)}
+              <div className="divide-y divide-zinc-200">
+                {businessExpenses.map((category) => (
+                  <div key={category.id}>
+                    {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
+                  </div>
+                ))}
+                {metricRow("Total Beban Usaha", totalBusinessExpenses, true)}
+              </div>
             </section>
             <section className="order-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-5">
               <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
                 Pengambilan Pribadi
               </h2>
-              {personalExpenses.map((category) => (
-                <div key={category.id}>
-                  {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
-                </div>
-              ))}
-              {metricRow("Total Pengambilan Pribadi", totalPersonal, true)}
+              <div className="divide-y divide-zinc-200">
+                {personalExpenses.map((category) => (
+                  <div key={category.id}>
+                    {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
+                  </div>
+                ))}
+                {metricRow("Total Pengambilan Pribadi", totalPersonal, true)}
+              </div>
             </section>
           </div>
         </div>
