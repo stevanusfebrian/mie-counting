@@ -15,6 +15,11 @@ type HistoryRow = {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
+const shiftDate = (date: string, days: number) => {
+  const nextDate = new Date(`${date}T00:00:00.000Z`);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return nextDate.toISOString().slice(0, 10);
+};
 const newFormRow = (): FormRow => ({ key: crypto.randomUUID(), pengeluaran_id: "", deskripsi: "", jumlah: "" });
 const amount = (value: number | string) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(Number(value));
 
@@ -53,6 +58,11 @@ export default function LogPengeluaranPage() {
   }, [tanggal]);
 
   const categoryNames = new Map(categories.map((category) => [category.id, category.nama]));
+
+  const moveDay = (direction: -1 | 1) => {
+    setTanggal((current) => shiftDate(current, direction));
+    setSuccess(null);
+  };
 
   const updateFormRow = (key: string, changes: Partial<FormRow>) => {
     setFormRows((current) => current.map((row) => row.key === key ? { ...row, ...changes } : row));
@@ -134,15 +144,35 @@ export default function LogPengeluaranPage() {
         <section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <label className={`block text-sm font-medium ${midText.sm}`}>
             Tanggal
-            <input
-              type="date"
-              value={tanggal}
-              onChange={(event) => {
-                setTanggal(event.target.value);
-                setSuccess(null);
-              }}
-              className="mt-1 min-h-11 w-full rounded border border-zinc-300 px-3 text-base sm:max-w-xs"
-            />
+            <div className="mt-1 flex w-full items-center gap-2 sm:max-w-xs">
+              <input
+                type="date"
+                value={tanggal}
+                onChange={(event) => {
+                  setTanggal(event.target.value);
+                  setSuccess(null);
+                }}
+                className="min-h-11 min-w-0 flex-1 rounded border border-zinc-300 px-3 text-base"
+              />
+              <>
+                <button
+                  type="button"
+                  onClick={() => moveDay(-1)}
+                  aria-label="Tanggal sebelumnya"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300 bg-white text-base text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveDay(1)}
+                  aria-label="Tanggal berikutnya"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300 bg-white text-base text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  ›
+                </button>
+              </>
+            </div>
           </label>
         </section>
         {error && (
