@@ -182,6 +182,11 @@ const [
     return () => { active = false; };
   }, [tanggal]);
 
+  const moveDay = (direction: -1 | 1) => {
+    setTanggal((current) => shiftDate(current, direction));
+    setSuccess(null);
+  };
+
   const visibleRows = useMemo(() => rows.filter((row) => row.kind === "titipan" ? activeTab === "Titipan" : row.kategori === activeTab), [activeTab, rows]);
 
   const updateRow = (key: string, changes: Partial<InputRow>) => setRows((current) => current.map((row) => row.key === key ? { ...row, ...changes } : row));
@@ -251,28 +256,24 @@ const [
                 }}
                 className="min-h-11 min-w-0 flex-1 rounded border border-zinc-300 px-3 text-base"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  setTanggal((current) => shiftDate(current, -1));
-                  setSuccess(null);
-                }}
-                aria-label="Tanggal sebelumnya"
-                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded border border-zinc-300 bg-white hover:bg-zinc-100"
-              >
-                <Image src="/vector%20date.png" alt="" width={12} height={20} className="h-5 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTanggal((current) => shiftDate(current, 1));
-                  setSuccess(null);
-                }}
-                aria-label="Tanggal berikutnya"
-                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded border border-zinc-300 bg-white hover:bg-zinc-100"
-              >
-                <Image src="/vector%20date.png" alt="" width={12} height={20} className="h-5 w-3 rotate-180" />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => moveDay(-1)}
+                  aria-label="Tanggal sebelumnya"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300 bg-white text-base text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveDay(1)}
+                  aria-label="Tanggal berikutnya"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300 bg-white text-base text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  ›
+                </button>
+              </>
             </div>
           </label>
         </div>
