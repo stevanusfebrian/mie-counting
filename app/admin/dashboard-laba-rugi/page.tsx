@@ -27,8 +27,8 @@ const numberValue = (value: number | string | null | undefined) => Number(value 
 
 export default function DashboardLabaRugiPage() {
   const initialToday = today();
-  const [preset, setPreset] = useState<Preset>("month");
-  const [startDate, setStartDate] = useState(monthStart(initialToday));
+  const [preset, setPreset] = useState<Preset>("today");
+  const [startDate, setStartDate] = useState(initialToday);
   const [endDate, setEndDate] = useState(initialToday);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sales, setSales] = useState(0);
@@ -79,6 +79,13 @@ export default function DashboardLabaRugiPage() {
     setEndDate(current);
     setStartDate(nextPreset === "today" ? current : nextPreset === "week" ? shiftDate(current, 1 - (new Date(`${current}T00:00:00`).getDay() || 7)) : monthStart(current));
   };
+  const moveDay = (direction: -1 | 1) => {
+    const baseDate = preset === "custom" ? startDate || today() : startDate || today();
+    const nextDate = shiftDate(baseDate, direction);
+    setPreset("today");
+    setStartDate(nextDate);
+    setEndDate(nextDate);
+  };
   const updateDate = (setter: (value: string) => void, value: string) => {
     setPreset("custom");
     setter(value);
@@ -127,29 +134,52 @@ export default function DashboardLabaRugiPage() {
         </header>
 
         <section className="mb-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-          <div
-            className="flex flex-wrap gap-2"
-            role="group"
-            aria-label="Preset tanggal"
-          >
-            {(
-              [
-                ["today", "Hari ini"],
-                ["week", "Minggu ini"],
-                ["month", "Bulan ini"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setPresetRange(value)}
-                className={`min-h-7 rounded-full border px-3 text-xs font-medium transition ${preset === value ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"}`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex justify-end">
+            <div
+              className="flex flex-wrap items-center justify-end gap-2"
+              role="group"
+              aria-label="Preset tanggal"
+            >
+              {(
+                [
+                  ["month", "Bulan ini"],
+                  ["week", "Minggu ini"],
+                  ["today", "Hari ini"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setPresetRange(value)}
+                  className={`min-h-7 rounded-full border px-3 text-xs font-medium transition ${preset === value ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"}`}
+                >
+                  {label}
+                </button>
+              ))}
+
+              {preset === "today" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => moveDay(-1)}
+                    aria-label="Tanggal sebelumnya"
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-300 bg-white text-base text-zinc-700 transition hover:bg-zinc-50"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveDay(1)}
+                    aria-label="Tanggal berikutnya"
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-300 bg-white text-base text-zinc-700 transition hover:bg-zinc-50"
+                  >
+                    ›
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-2 gap-3">
             <label className={`text-sm font-medium ${midText.sm}`}>
               Tanggal Mulai
               <input
@@ -191,36 +221,8 @@ export default function DashboardLabaRugiPage() {
         )}
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <section className="order-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-none">
-            <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
-              Beban Usaha
-            </h2>
-            {businessExpenses.map((category) => (
-              <div key={category.id}>
-                {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
-              </div>
-            ))}
-            {metricRow("Total Beban Usaha", totalBusinessExpenses, true)}
-          </section>
-          <section className="order-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-none">
-            <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
-              Pengambilan Pribadi
-            </h2>
-            {personalExpenses.map((category) => (
-              <div key={category.id}>
-                {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
-              </div>
-            ))}
-            {metricRow("Total Pengambilan Pribadi", totalPersonal, true)}
-          </section>
-          <div className="contents lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:block lg:space-y-5">
-            <section className="order-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-none">
-              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>Pendapatan</h2>
-              {metricRow("Penjualan Menu & Add-On", sales)}
-              {metricRow("Margin Titipan", consignmentMargin)}
-              {metricRow("Total Pendapatan", totalRevenue, true)}
-            </section>
-            <section className="order-1 self-start rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm lg:order-none">
+          <div className="contents lg:block lg:space-y-5">
+            <section className="order-1 self-start rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm lg:order-1">
               <div className="flex items-center justify-between gap-4">
                 <h2 className={`text-base font-bold ${midText.lg}`}>Laba Usaha</h2>
                 <span className="text-base font-bold tabular-nums text-emerald-800">
@@ -228,7 +230,7 @@ export default function DashboardLabaRugiPage() {
                 </span>
               </div>
             </section>
-            <section className="order-2 rounded-2xl border-2 border-zinc-900 bg-zinc-900 p-5 text-white shadow-sm lg:order-none">
+            <section className="order-2 rounded-2xl border-2 border-zinc-900 bg-zinc-900 p-5 text-white shadow-sm lg:order-2">
               <div className="flex items-center justify-between gap-4">
                 <h2 className={`text-base font-bold ${midText.lg}`}>
                   Sisa Kas / Laba Bersih
@@ -237,6 +239,37 @@ export default function DashboardLabaRugiPage() {
                   {amount(netCash)}
                 </span>
               </div>
+            </section>
+            <section className="order-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-3">
+              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>Pendapatan</h2>
+              {metricRow("Penjualan Menu & Add-On", sales)}
+              {metricRow("Margin Titipan", consignmentMargin)}
+              {metricRow("Total Pendapatan", totalRevenue, true)}
+            </section>
+          </div>
+
+          <div className="contents lg:block lg:space-y-5">
+            <section className="order-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-4">
+              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
+                Beban Usaha
+              </h2>
+              {businessExpenses.map((category) => (
+                <div key={category.id}>
+                  {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
+                </div>
+              ))}
+              {metricRow("Total Beban Usaha", totalBusinessExpenses, true)}
+            </section>
+            <section className="order-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-5">
+              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
+                Pengambilan Pribadi
+              </h2>
+              {personalExpenses.map((category) => (
+                <div key={category.id}>
+                  {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
+                </div>
+              ))}
+              {metricRow("Total Pengambilan Pribadi", totalPersonal, true)}
             </section>
           </div>
         </div>
