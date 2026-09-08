@@ -310,7 +310,7 @@ export default function DashboardLabaRugiPage() {
                   Beban Usaha
                 </h2>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-zinc-700">Tampilkan Detail Sub-Kategori</span>
+                  <span className="text-sm font-medium text-zinc-700">Detail Sub-Kategori</span>
                   <button
                     type="button"
                     role="switch"
@@ -361,7 +361,7 @@ export default function DashboardLabaRugiPage() {
                     </div>
                   );
                 })}
-                <div style={{ borderTop: "10px solid #585894" }}>
+                <div className="border-t-[2px] border-zinc-500">
                   {metricRow("Total Beban Usaha", totalBusinessExpenses, true)}
                 </div>
               </div>
