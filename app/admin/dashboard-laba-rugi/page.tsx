@@ -338,7 +338,7 @@ export default function DashboardLabaRugiPage() {
 
                   return (
                     <div key={category.id}>
-                      {metricRow(category.nama, expenseTotals[category.id] ?? 0, true)}
+                      {metricRow(category.nama, expenseTotals[category.id] ?? 0, showSubKategori)}
                       {showSubKategori && hasRegisteredSubCategories && subEntries.length > 0 && (
                         <div className="pl-6">
                           {subEntries.map(([subId, total]) => {
