@@ -6,10 +6,12 @@ import { supabase } from "../../../lib/supabase";
 import { midText } from "../../../lib/styles/responsive";
 
 type Category = { id: string; nama: string };
-type FormRow = { key: string; pengeluaran_id: string; deskripsi: string; jumlah: string };
+type SubCategory = { id: string; pengeluaran_id: string; nama: string };
+type FormRow = { key: string; pengeluaran_id: string; sub_pengeluaran_id: string; deskripsi: string; jumlah: string };
 type HistoryRow = {
   id: string;
   pengeluaran_id: string;
+  sub_pengeluaran_id: string | null;
   deskripsi: string | null;
   jumlah: number | string;
 };
@@ -20,12 +22,13 @@ const shiftDate = (date: string, days: number) => {
   nextDate.setUTCDate(nextDate.getUTCDate() + days);
   return nextDate.toISOString().slice(0, 10);
 };
-const newFormRow = (): FormRow => ({ key: crypto.randomUUID(), pengeluaran_id: "", deskripsi: "", jumlah: "" });
+const newFormRow = (): FormRow => ({ key: crypto.randomUUID(), pengeluaran_id: "", sub_pengeluaran_id: "", deskripsi: "", jumlah: "" });
 const amount = (value: number | string) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(Number(value));
 
 export default function LogPengeluaranPage() {
   const [tanggal, setTanggal] = useState(today);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [formRows, setFormRows] = useState<FormRow[]>([newFormRow()]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [editing, setEditing] = useState<HistoryRow | null>(null);
@@ -38,14 +41,16 @@ export default function LogPengeluaranPage() {
   const load = async (selectedDate: string) => {
     setLoading(true);
     setError(null);
-    const [{ data: categoryData, error: categoryError }, { data: historyData, error: historyError }] = await Promise.all([
+    const [{ data: categoryData, error: categoryError }, { data: subCategoryData, error: subCategoryError }, { data: historyData, error: historyError }] = await Promise.all([
       supabase.from("ms_pengeluaran").select("id, nama").eq("aktif", true).order("nama", { ascending: true }),
-      supabase.from("log_pengeluaran").select("id, pengeluaran_id, deskripsi, jumlah").eq("tanggal", selectedDate).eq("is_deleted", false).order("created_at", { ascending: false }),
+      supabase.from("ms_sub_pengeluaran").select("id, pengeluaran_id, nama").eq("aktif", true).order("nama", { ascending: true }),
+      supabase.from("log_pengeluaran").select("id, pengeluaran_id, sub_pengeluaran_id, deskripsi, jumlah").eq("tanggal", selectedDate).eq("is_deleted", false).order("created_at", { ascending: false }),
     ]);
-    const fetchError = categoryError ?? historyError;
+    const fetchError = categoryError ?? subCategoryError ?? historyError;
     if (fetchError) setError(fetchError.message);
     else {
       setCategories((categoryData ?? []) as Category[]);
+      setSubCategories((subCategoryData ?? []) as SubCategory[]);
       setHistory((historyData ?? []) as HistoryRow[]);
     }
     setLoading(false);
@@ -58,6 +63,7 @@ export default function LogPengeluaranPage() {
   }, [tanggal]);
 
   const categoryNames = new Map(categories.map((category) => [category.id, category.nama]));
+  const subCategoryNames = new Map(subCategories.map((category) => [category.id, category.nama]));
 
   const moveDay = (direction: -1 | 1) => {
     setTanggal((current) => shiftDate(current, direction));
@@ -65,13 +71,22 @@ export default function LogPengeluaranPage() {
   };
 
   const updateFormRow = (key: string, changes: Partial<FormRow>) => {
-    setFormRows((current) => current.map((row) => row.key === key ? { ...row, ...changes } : row));
+    setFormRows((current) =>
+      current.map((row) => {
+        if (row.key !== key) return row;
+        const nextRow = { ...row, ...changes };
+        if (changes.pengeluaran_id !== undefined && changes.pengeluaran_id !== row.pengeluaran_id) {
+          nextRow.sub_pengeluaran_id = "";
+        }
+        return nextRow;
+      }),
+    );
   };
 
   const save = async () => {
     const rowsToSave = formRows
       .filter((row) => row.pengeluaran_id && row.jumlah && Number(row.jumlah) > 0)
-      .map((row) => ({ tanggal, pengeluaran_id: row.pengeluaran_id, deskripsi: row.deskripsi.trim() || null, jumlah: Number(row.jumlah) }));
+      .map((row) => ({ tanggal, pengeluaran_id: row.pengeluaran_id, sub_pengeluaran_id: row.sub_pengeluaran_id || null, deskripsi: row.deskripsi.trim() || null, jumlah: Number(row.jumlah) }));
     if (rowsToSave.length === 0) {
       setError("Isi minimal satu kategori dengan jumlah lebih dari 0.");
       return;
@@ -102,7 +117,7 @@ export default function LogPengeluaranPage() {
     setHistoryAction(true);
     setError(null);
     const { data: userData } = await supabase.auth.getUser();
-    const { error: updateError } = await supabase.from("log_pengeluaran").update({ pengeluaran_id: editing.pengeluaran_id, deskripsi: editing.deskripsi?.trim() || null, jumlah: Number(editing.jumlah), updated_by: userData.user?.id ?? null, updated_at: new Date().toISOString() }).eq("id", editing.id);
+    const { error: updateError } = await supabase.from("log_pengeluaran").update({ pengeluaran_id: editing.pengeluaran_id, sub_pengeluaran_id: editing.sub_pengeluaran_id || null, deskripsi: editing.deskripsi?.trim() || null, jumlah: Number(editing.jumlah), updated_by: userData.user?.id ?? null, updated_at: new Date().toISOString() }).eq("id", editing.id);
     if (updateError) setError(updateError.message);
     else { setEditing(null); await load(tanggal); }
     setHistoryAction(false);
@@ -118,6 +133,8 @@ export default function LogPengeluaranPage() {
     else await load(tanggal);
     setHistoryAction(false);
   };
+
+  const editingSubCategories = editing?.pengeluaran_id ? subCategories.filter((category) => category.pengeluaran_id === editing.pengeluaran_id) : [];
 
   return (
     <main className="min-h-screen bg-zinc-50 px-3 py-4 text-zinc-900 sm:px-6 sm:py-6">
@@ -194,7 +211,7 @@ export default function LogPengeluaranPage() {
             {formRows.map((row) => (
               <div
                 key={row.key}
-                className="grid gap-2 border-b border-zinc-200 pb-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_10rem_auto] sm:items-center"
+                className="grid gap-2 border-b border-zinc-200 pb-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_10rem_auto] sm:items-center"
               >
                 <select
                   value={row.pengeluaran_id}
@@ -206,6 +223,22 @@ export default function LogPengeluaranPage() {
                 >
                   <option value="">Pilih kategori</option>
                   {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.nama}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={row.sub_pengeluaran_id}
+                  onChange={(event) =>
+                    updateFormRow(row.key, { sub_pengeluaran_id: event.target.value })
+                  }
+                  disabled={!row.pengeluaran_id}
+                  className="min-h-11 rounded border border-zinc-300 px-3 text-sm disabled:cursor-not-allowed disabled:bg-zinc-100"
+                  aria-label="Sub-kategori pengeluaran"
+                >
+                  <option value="">Sub-kategori (opsional)</option>
+                  {(subCategories.filter((category) => category.pengeluaran_id === row.pengeluaran_id)).map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.nama}
                     </option>
@@ -295,7 +328,7 @@ export default function LogPengeluaranPage() {
                 editing?.id === row.id ? (
                   <div
                     key={row.id}
-                    className="grid gap-2 border-b border-zinc-200 pb-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_10rem_auto] sm:items-center"
+                    className="grid gap-2 border-b border-zinc-200 pb-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_10rem_auto] sm:items-center"
                   >
                     <select
                       value={editing.pengeluaran_id}
@@ -303,12 +336,29 @@ export default function LogPengeluaranPage() {
                         setEditing({
                           ...editing,
                           pengeluaran_id: event.target.value,
+                          sub_pengeluaran_id: null,
                         })
                       }
                       className="min-h-11 rounded border border-zinc-300 px-3 text-sm"
                       aria-label="Kategori pengeluaran edit"
                     >
                       {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.nama}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={editing.sub_pengeluaran_id ?? ""}
+                      onChange={(event) =>
+                        setEditing({ ...editing, sub_pengeluaran_id: event.target.value || null })
+                      }
+                      disabled={!editing.pengeluaran_id}
+                      className="min-h-11 rounded border border-zinc-300 px-3 text-sm disabled:cursor-not-allowed disabled:bg-zinc-100"
+                      aria-label="Sub-kategori pengeluaran edit"
+                    >
+                      <option value="">Sub-kategori (opsional)</option>
+                      {editingSubCategories.map((category) => (
                         <option key={category.id} value={category.id}>
                           {category.nama}
                         </option>
@@ -356,9 +406,15 @@ export default function LogPengeluaranPage() {
                   >
                     <div className="min-w-0">
                       <p className="font-medium">
-                        {categoryNames.get(row.pengeluaran_id) ??
-                          "Kategori tidak ditemukan"}
+                        {categoryNames.get(row.pengeluaran_id) ?? "Kategori tidak ditemukan"}
                       </p>
+                      {row.sub_pengeluaran_id ? (
+                        <p className="text-xs text-zinc-500">
+                          {subCategoryNames.get(row.sub_pengeluaran_id) ?? "Sub-kategori tidak ditemukan"}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-500">Tidak Berkategori</p>
+                      )}
                       <p className="break-words text-sm text-zinc-500">
                         {row.deskripsi || "Tanpa deskripsi"}
                       </p>

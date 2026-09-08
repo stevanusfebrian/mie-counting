@@ -7,7 +7,8 @@ import { midText } from "../../../lib/styles/responsive";
 
 type Preset = "today" | "week" | "month" | "custom";
 type Category = { id: string; nama: string };
-type ExpenseRow = { pengeluaran_id: string; jumlah: number | string };
+type SubCategory = { id: string; pengeluaran_id: string; nama: string };
+type ExpenseRow = { pengeluaran_id: string; sub_pengeluaran_id?: string | null; jumlah: number | string };
 type AmountRow = { total?: number | string | null; margin?: number | string | null };
 
 const PERSONAL_CATEGORIES = new Set(["Gaji Pribadi", "Pribadi/Non-usaha"]);
@@ -31,12 +32,15 @@ export default function DashboardLabaRugiPage() {
   const [startDate, setStartDate] = useState(initialToday);
   const [endDate, setEndDate] = useState(initialToday);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [sales, setSales] = useState(0);
   const [countMakan, setCountMakan] = useState(0);
   const [countMinum, setCountMinum] = useState(0);
   const [consignmentMargin, setConsignmentMargin] = useState(0);
   const [consignmentQty, setConsignmentQty] = useState(0);
   const [expenseTotals, setExpenseTotals] = useState<Record<string, number>>({});
+  const [subExpenseTotals, setSubExpenseTotals] = useState<Record<string, Record<string, number>>>({});
+  const [showSubKategori, setShowSubKategori] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,14 +53,15 @@ export default function DashboardLabaRugiPage() {
     }
     setLoading(true);
     setError(null);
-    const [{ data: categoryData, error: categoryError }, { data: menuData, error: menuError }, { data: salesData, error: salesError }, { data: marginData, error: marginError }, { data: expenseData, error: expenseError }] = await Promise.all([
+    const [{ data: categoryData, error: categoryError }, { data: subCategoryData, error: subCategoryError }, { data: menuData, error: menuError }, { data: salesData, error: salesError }, { data: marginData, error: marginError }, { data: expenseData, error: expenseError }] = await Promise.all([
       supabase.from("ms_pengeluaran").select("id, nama").eq("aktif", true).order("nama", { ascending: true }),
+      supabase.from("ms_sub_pengeluaran").select("id, pengeluaran_id, nama").eq("aktif", true).order("nama", { ascending: true }),
       supabase.from("ms_menu").select("id, kategori").eq("aktif", true),
       supabase.from("log_penjualan").select("menu_item_id, qty, total").gte("tanggal", startDate).lte("tanggal", endDate),
       supabase.from("log_titipan").select("margin, qty").gte("tanggal", startDate).lte("tanggal", endDate),
-      supabase.from("log_pengeluaran").select("pengeluaran_id, jumlah").gte("tanggal", startDate).lte("tanggal", endDate),
+      supabase.from("log_pengeluaran").select("pengeluaran_id, sub_pengeluaran_id, jumlah").gte("tanggal", startDate).lte("tanggal", endDate),
     ]);
-    const fetchError = categoryError ?? menuError ?? salesError ?? marginError ?? expenseError;
+    const fetchError = categoryError ?? subCategoryError ?? menuError ?? salesError ?? marginError ?? expenseError;
     if (fetchError) {
       setError(fetchError.message);
       setLoading(false);
@@ -64,6 +69,13 @@ export default function DashboardLabaRugiPage() {
     }
     const totals = ((expenseData ?? []) as ExpenseRow[]).reduce<Record<string, number>>((result, row) => {
       result[row.pengeluaran_id] = (result[row.pengeluaran_id] ?? 0) + numberValue(row.jumlah);
+      return result;
+    }, {});
+    const subTotals = ((expenseData ?? []) as Array<{ pengeluaran_id: string; sub_pengeluaran_id: string | null; jumlah: number | string }>).reduce<Record<string, Record<string, number>>>((result, row) => {
+      const catId = row.pengeluaran_id;
+      const subId = row.sub_pengeluaran_id ?? "UNCATEGORIZED";
+      if (!result[catId]) result[catId] = {};
+      result[catId][subId] = (result[catId][subId] ?? 0) + numberValue(row.jumlah);
       return result;
     }, {});
     const menuCategoryMap = new Map((menuData ?? []).map((row) => [row.id, String(row.kategori ?? "").trim()]));
@@ -84,12 +96,14 @@ export default function DashboardLabaRugiPage() {
     }, 0);
 
     setCategories((categoryData ?? []) as Category[]);
+    setSubCategories((subCategoryData ?? []) as SubCategory[]);
     setSales(salesEntries.reduce((sum, row) => sum + numberValue(row.total), 0));
     setCountMakan(countMakanValue);
     setCountMinum(countMinumValue);
     setConsignmentMargin(((marginData ?? []) as AmountRow[]).reduce((sum, row) => sum + numberValue(row.margin), 0));
     setConsignmentQty(((marginData ?? []) as Array<{ qty?: number | string | null }>).reduce((sum, row) => sum + numberValue(row.qty), 0));
     setExpenseTotals(totals);
+    setSubExpenseTotals(subTotals);
     setLoading(false);
   }, [endDate, startDate, validRange]);
 
@@ -124,8 +138,8 @@ export default function DashboardLabaRugiPage() {
   const totalPersonal = sumCategories(personalExpenses);
   const netCash = operatingProfit - totalPersonal;
 
-  const metricRow = (label: string, value: number, emphasis = false, counts: Array<{ count: number; label: string }> = []) => (
-    <div className={`flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-sm last:border-b-0 sm:py-3 sm:text-sm ${emphasis ? "font-bold text-zinc-950" : "text-zinc-700"}`} style={{ fontSize: 0.75 + "rem" }}>
+  const metricRow = (label: string, value: number, emphasis = false, counts: Array<{ count: number; label: string }> = [], rowClassName = "") => (
+    <div className={`flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-sm last:border-b-0 sm:py-3 sm:text-sm ${emphasis ? "font-bold text-zinc-950" : "text-zinc-700"} ${rowClassName}`} style={{ fontSize: 0.75 + "rem" }}>
       <div className="flex min-w-0 flex-col">
         <span>{label}</span>
         {counts.length > 0 && (
@@ -291,16 +305,65 @@ export default function DashboardLabaRugiPage() {
 
           <div className="contents lg:block lg:space-y-5">
             <section className="order-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-4">
-              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
-                Beban Usaha
-              </h2>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className={`text-base font-bold ${midText.lg}`}>
+                  Beban Usaha
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-700">Tampilkan Detail Sub-Kategori</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showSubKategori}
+                    onClick={() => setShowSubKategori((prev) => !prev)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${showSubKategori ? "bg-blue-600" : "bg-zinc-300"}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${showSubKategori ? "translate-x-6" : "translate-x-1"}`}
+                    />
+                  </button>
+                </div>
+              </div>
               <div className="divide-y divide-zinc-200">
-                {businessExpenses.map((category) => (
-                  <div key={category.id}>
-                    {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
-                  </div>
-                ))}
-                {metricRow("Total Beban Usaha", totalBusinessExpenses, true)}
+                {businessExpenses.map((category) => {
+                  const subTotalsForCategory = subExpenseTotals[category.id] ?? {};
+                  const hasRegisteredSubCategories = subCategories.some((sub) => sub.pengeluaran_id === category.id);
+                  const subEntries = Object.entries(subTotalsForCategory)
+                    .filter(([, total]) => total > 0)
+                    .sort((a, b) => {
+                      if (a[0] === "UNCATEGORIZED") return 1;
+                      if (b[0] === "UNCATEGORIZED") return -1;
+                      return b[1] - a[1];
+                    });
+
+                  return (
+                    <div key={category.id}>
+                      {metricRow(category.nama, expenseTotals[category.id] ?? 0, true)}
+                      {showSubKategori && hasRegisteredSubCategories && subEntries.length > 0 && (
+                        <div className="pl-6">
+                          {subEntries.map(([subId, total]) => {
+                            const label = subId === "UNCATEGORIZED"
+                              ? "Tidak Berkategori"
+                              : (subCategories.find((item) => item.id === subId)?.nama ?? "Tidak Diketahui");
+
+                            return (
+                              <div
+                                key={subId}
+                                className="flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-xs font-normal text-zinc-00 last:border-b-0"
+                              >
+                                <span>{label}</span>
+                                <span className="tabular-nums">{amount(total)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <div style={{ borderTop: "10px solid #585894" }}>
+                  {metricRow("Total Beban Usaha", totalBusinessExpenses, true)}
+                </div>
               </div>
             </section>
             <section className="order-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-5">
