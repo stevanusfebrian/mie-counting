@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { midText } from "../../../lib/styles/responsive";
@@ -159,7 +158,7 @@ const [
         hydrated.push({
           ...row,
           key: `${row.key}-${index}`,
-          qty: String(saved.qty),
+          qty: numberValue(saved.qty) === 0 ? "" : String(saved.qty),
           override: savedPrice === row.hargaNormal ? "" : String(savedPrice),
           useOverride: savedPrice !== row.hargaNormal,
           catatan: saved.catatan ?? "",
@@ -200,18 +199,18 @@ const [
 
   const save = async () => {
     const errors: Record<string, string> = {};
-    const positiveRows = rows.filter((row) => Number(row.qty) > 0);
-    for (const row of positiveRows) {
+    const enteredRows = rows.filter((row) => row.qty.trim() !== "");
+    for (const row of enteredRows) {
       const qty = Number(row.qty);
-      if (!Number.isInteger(qty)) errors[row.key] = "Qty harus bilangan bulat.";
-      if (row.additional && (!row.override.trim() || !Number.isFinite(Number(row.override)) || Number(row.override) < 0)) errors[row.key] = "Harga override wajib diisi.";
+      if (!Number.isInteger(qty) || qty < 0) errors[row.key] = "Qty harus bilangan bulat 0 atau lebih.";
+      if (qty > 0 && row.additional && (!row.override.trim() || !Number.isFinite(Number(row.override)) || Number(row.override) < 0)) errors[row.key] = "Harga override wajib diisi.";
       if (row.useOverride && row.override.trim() && (!Number.isFinite(Number(row.override)) || Number(row.override) < 0)) errors[row.key] = "Harga harus angka valid.";
     }
     setRowErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    const pPenjualan = positiveRows.filter((row) => row.kind === "menu").map((row) => ({ menu_item_id: row.itemId, qty: Number(row.qty), ...(row.useOverride && row.override.trim() ? { harga_override: Number(row.override) } : {}), ...(row.catatan.trim() ? { catatan: row.catatan.trim() } : {}) }));
-    const pTitipan = positiveRows.filter((row) => row.kind === "titipan").map((row) => ({ titipan_item_id: row.itemId, qty: Number(row.qty), ...(row.useOverride && row.override.trim() ? { harga_jual_override: Number(row.override) } : {}), ...(row.catatan.trim() ? { catatan: row.catatan.trim() } : {}) }));
+    const pPenjualan = enteredRows.filter((row) => row.kind === "menu").map((row) => ({ menu_item_id: row.itemId, qty: Number(row.qty), ...(row.useOverride && row.override.trim() ? { harga_override: Number(row.override) } : {}), ...(row.catatan.trim() ? { catatan: row.catatan.trim() } : {}) }));
+    const pTitipan = enteredRows.filter((row) => row.kind === "titipan").map((row) => ({ titipan_item_id: row.itemId, qty: Number(row.qty), ...(row.useOverride && row.override.trim() ? { harga_jual_override: Number(row.override) } : {}), ...(row.catatan.trim() ? { catatan: row.catatan.trim() } : {}) }));
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -366,8 +365,8 @@ const [
                     </div>
                     {row.additional && <input type="number" min="0" step="1" value={row.override} onChange={(event) => updateRow(row.key, { override: event.target.value })} placeholder="Harga jual khusus" className="order-2 h-8 rounded border px-2 text-[11px] placeholder:text-[11px] sm:order-none" aria-label={`Harga jual khusus ${row.nama}`} />}
                     {row.additional && <input value={row.catatan} onChange={(event) => updateRow(row.key, { catatan: event.target.value })} placeholder="Catatan / alasan" className="order-3 h-8 rounded border px-2 text-[11px] placeholder:text-[11px] sm:order-none" aria-label={`Catatan ${row.nama}`} />}
-                    {!row.additional && <input type="number" min="1" step="1" inputMode="numeric" placeholder="Qty" value={row.qty} onChange={(event) => updateRow(row.key, { qty: event.target.value })} className="h-8 rounded border px-2 text-[11px] placeholder:text-[11px]" aria-label={`Qty ${row.nama}`} />}
-                    {row.additional && <input type="number" min="1" step="1" inputMode="numeric" placeholder="Qty" value={row.qty} onChange={(event) => updateRow(row.key, { qty: event.target.value })} className="order-4 h-8 rounded border px-2 text-[11px] placeholder:text-[11px] sm:order-none" aria-label={`Qty ${row.nama}`} />}
+                    {!row.additional && <input type="number" min="0" step="1" inputMode="numeric" placeholder="Qty" value={row.qty} onChange={(event) => updateRow(row.key, { qty: event.target.value })} className="h-8 rounded border px-2 text-[11px] placeholder:text-[11px]" aria-label={`Qty ${row.nama}`} />}
+                    {row.additional && <input type="number" min="0" step="1" inputMode="numeric" placeholder="Qty" value={row.qty} onChange={(event) => updateRow(row.key, { qty: event.target.value })} className="order-4 h-8 rounded border px-2 text-[11px] placeholder:text-[11px] sm:order-none" aria-label={`Qty ${row.nama}`} />}
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       {!row.additional && (
                         <button
