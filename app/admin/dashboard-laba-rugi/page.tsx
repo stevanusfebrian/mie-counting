@@ -9,6 +9,7 @@ type Preset = "today" | "week" | "month" | "custom";
 type Category = { id: string; nama: string };
 type SubCategory = { id: string; pengeluaran_id: string; nama: string };
 type ExpenseRow = { pengeluaran_id: string; sub_pengeluaran_id?: string | null; jumlah: number | string };
+type BahanBakuPurchase = { tanggal: string; qty: number | string | null; deskripsi?: string | null; bahan_baku_id: string | null };
 type AmountRow = { total?: number | string | null; margin?: number | string | null };
 
 const PERSONAL_CATEGORIES = new Set(["Gaji Pribadi", "Pribadi/Non-usaha"]);
@@ -36,6 +37,8 @@ export default function DashboardLabaRugiPage() {
   const [sales, setSales] = useState(0);
   const [countMakan, setCountMakan] = useState(0);
   const [countMinum, setCountMinum] = useState(0);
+  const [noodleCounts, setNoodleCounts] = useState<Record<string, number>>({});
+  const [ayamStock, setAyamStock] = useState<{ averagePerDay: number; latestQty: number; estimatedDays: number | null; estimatedCount: number }>({ averagePerDay: 0, latestQty: 0, estimatedDays: null, estimatedCount: 0 });
   const [consignmentMargin, setConsignmentMargin] = useState(0);
   const [consignmentQty, setConsignmentQty] = useState(0);
   const [expenseTotals, setExpenseTotals] = useState<Record<string, number>>({});
@@ -53,15 +56,16 @@ export default function DashboardLabaRugiPage() {
     }
     setLoading(true);
     setError(null);
-    const [{ data: categoryData, error: categoryError }, { data: subCategoryData, error: subCategoryError }, { data: menuData, error: menuError }, { data: salesData, error: salesError }, { data: marginData, error: marginError }, { data: expenseData, error: expenseError }] = await Promise.all([
+    const [{ data: categoryData, error: categoryError }, { data: subCategoryData, error: subCategoryError }, { data: menuData, error: menuError }, { data: salesData, error: salesError }, { data: marginData, error: marginError }, { data: expenseData, error: expenseError }, { data: ayamData, error: ayamError }] = await Promise.all([
       supabase.from("ms_pengeluaran").select("id, nama").eq("aktif", true).order("nama", { ascending: true }),
       supabase.from("ms_sub_pengeluaran").select("id, pengeluaran_id, nama").eq("aktif", true).order("nama", { ascending: true }),
       supabase.from("ms_menu").select("id, kategori").eq("aktif", true),
       supabase.from("log_penjualan").select("menu_item_id, qty, total").gte("tanggal", startDate).lte("tanggal", endDate),
       supabase.from("log_titipan").select("margin, qty").gte("tanggal", startDate).lte("tanggal", endDate),
-      supabase.from("log_pengeluaran").select("pengeluaran_id, sub_pengeluaran_id, jumlah").gte("tanggal", startDate).lte("tanggal", endDate),
+      supabase.from("log_pengeluaran").select("pengeluaran_id, sub_pengeluaran_id, jumlah").gte("tanggal", startDate).lte("tanggal", endDate).eq("is_deleted", false),
+      supabase.from("log_pengeluaran").select("tanggal, qty, deskripsi, bahan_baku_id, ms_bahan_baku!inner(nama, ms_sub_pengeluaran!inner(nama))").gte("tanggal", startDate).lte("tanggal", endDate).eq("is_deleted", false).eq("ms_bahan_baku.nama", "Ayam").eq("ms_bahan_baku.ms_sub_pengeluaran.nama", "Ayam").order("tanggal", { ascending: true }),
     ]);
-    const fetchError = categoryError ?? subCategoryError ?? menuError ?? salesError ?? marginError ?? expenseError;
+    const fetchError = categoryError ?? subCategoryError ?? menuError ?? salesError ?? marginError ?? expenseError ?? ayamError;
     if (fetchError) {
       setError(fetchError.message);
       setLoading(false);
@@ -94,12 +98,25 @@ export default function DashboardLabaRugiPage() {
       }
       return sum;
     }, 0);
+    const noodleCategories = ["mie", "mie lebar", "kwetiau", "bihun"];
+    const noodleCountValues = noodleCategories.reduce<Record<string, number>>((result, category) => {
+      result[category] = salesEntries.reduce((sum, row) => (menuCategoryMap.get(String(row.menu_item_id ?? "")) ?? "").trim().toLowerCase() === category ? sum + numberValue(row.qty) : sum, 0);
+      return result;
+    }, {});
+    const ayamPurchases = (ayamData ?? []) as BahanBakuPurchase[];
+    const ayamQty = ayamPurchases.reduce((sum, row) => sum + numberValue(row.qty), 0);
+    const dayCount = ayamPurchases.length > 0 ? Math.max(1, Math.round((new Date(`${ayamPurchases[ayamPurchases.length - 1].tanggal}T00:00:00`).getTime() - new Date(`${ayamPurchases[0].tanggal}T00:00:00`).getTime()) / 86400000) + 1) : 0;
+    const averagePerDay = dayCount > 0 ? ayamQty / dayCount : 0;
+    const latestQty = ayamPurchases.length > 0 ? numberValue(ayamPurchases[ayamPurchases.length - 1].qty) : 0;
+    const estimatedCount = ayamPurchases.filter((row) => row.deskripsi?.includes("[estimasi]")).length;
 
     setCategories((categoryData ?? []) as Category[]);
     setSubCategories((subCategoryData ?? []) as SubCategory[]);
     setSales(salesEntries.reduce((sum, row) => sum + numberValue(row.total), 0));
     setCountMakan(countMakanValue);
     setCountMinum(countMinumValue);
+    setNoodleCounts(noodleCountValues);
+    setAyamStock({ averagePerDay, latestQty, estimatedDays: averagePerDay > 0 ? latestQty / averagePerDay : null, estimatedCount });
     setConsignmentMargin(((marginData ?? []) as AmountRow[]).reduce((sum, row) => sum + numberValue(row.margin), 0));
     setConsignmentQty(((marginData ?? []) as Array<{ qty?: number | string | null }>).reduce((sum, row) => sum + numberValue(row.qty), 0));
     setExpenseTotals(totals);
@@ -300,6 +317,24 @@ export default function DashboardLabaRugiPage() {
                 {metricRow("Margin Titipan", consignmentMargin, false, [{ count: consignmentQty, label: "item" }])}
                 {metricRow("Total Pendapatan", totalRevenue, true)}
               </div>
+            </section>
+            <section className="order-6 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-6">
+              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>Porsi Noodle Terjual</h2>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-zinc-700">
+                {["mie", "mie lebar", "kwetiau", "bihun"].map((category) => (
+                  <div key={category} className="flex justify-between gap-2 border-b border-zinc-100 py-1">
+                    <span className="capitalize">{category}</span>
+                    <span className="font-medium tabular-nums">{noodleCounts[category] ?? 0}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="order-7 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm sm:p-5 lg:order-7">
+              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>Estimasi Stok Ayam</h2>
+              <p className="text-sm text-zinc-700">
+                Ayam: rata-rata {ayamStock.averagePerDay.toFixed(2)} kg/hari · pembelian terakhir {ayamStock.latestQty.toFixed(2)} kg {ayamStock.estimatedDays === null ? "· belum cukup data" : `≈ ${ayamStock.estimatedDays.toFixed(1)} hari`}
+              </p>
+              {ayamStock.estimatedCount > 0 && <p className="mt-2 text-xs text-amber-800">{ayamStock.estimatedCount} pembelian memakai qty perkiraan.</p>}
             </section>
           </div>
 
