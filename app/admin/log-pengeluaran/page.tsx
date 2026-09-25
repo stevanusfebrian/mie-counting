@@ -26,6 +26,19 @@ const shiftDate = (date: string, days: number) => {
   return nextDate.toISOString().slice(0, 10);
 };
 const newFormRow = (): FormRow => ({ key: crypto.randomUUID(), pengeluaran_id: "", sub_pengeluaran_id: "", bahan_baku_id: "", qty: "", deskripsi: "", jumlah: "" });
+const AIR_CATEGORY_ID = "228cebd1-138f-401b-aece-d641fd5a828c";
+const AIR_GALLON_SUB_CATEGORY_IDS = new Set([
+  "9085330c-5007-4a08-8ed2-59404cfcd527",
+  "330b1009-900d-4962-8068-ce1bda0a85a6",
+]);
+const isAirGallonRow = (pengeluaranId: string, subPengeluaranId: string | null | undefined) =>
+  pengeluaranId === AIR_CATEGORY_ID && AIR_GALLON_SUB_CATEGORY_IDS.has(subPengeluaranId ?? "");
+const PERSONAL_NON_BUSINESS_CATEGORY_ID = "0c359b73-704e-495c-a89b-96fe61aa9ed7";
+const PERSONAL_HOME_SUB_CATEGORY_ID = "098aeb75-12c0-432b-91c0-6b22f0fe6c92";
+const isPersonalHomeRow = (pengeluaranId: string, subPengeluaranId: string | null | undefined) =>
+  pengeluaranId === PERSONAL_NON_BUSINESS_CATEGORY_ID && subPengeluaranId === PERSONAL_HOME_SUB_CATEGORY_ID;
+const needsQty = (pengeluaranId: string, subPengeluaranId: string | null | undefined, bahanBakuId: string, item: BahanBaku | undefined) =>
+  isAirGallonRow(pengeluaranId, subPengeluaranId) || Boolean(bahanBakuId && (!isPersonalHomeRow(pengeluaranId, subPengeluaranId) || item?.nama === "Isi Ulang"));
 const amount = (value: number | string) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(Number(value));
 const qtyLabel = (item: BahanBaku) => `Qty (${item.unit})`;
 const parsePrice = (value: number | string | null | undefined) => Number(String(value ?? "").replace(/\./g, "").replace(/[^\d-]/g, "")) || 0;
@@ -33,8 +46,8 @@ const formatPriceInput = (value: number | string | null | undefined) => {
   const digits = String(value ?? "").replace(/\D/g, "");
   return digits ? new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(Number(digits)) : "";
 };
-const itemFieldsGridClass = (itemCount: number, hasSelectedItem: boolean) =>
-  itemCount > 1 && hasSelectedItem
+const itemFieldsGridClass = (itemCount: number, hasSelectedItem: boolean, hasOptionalItemSelector = false) =>
+  itemCount > 1 && hasSelectedItem || hasOptionalItemSelector && hasSelectedItem
     ? "grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-start"
     : "grid gap-2 sm:grid-cols-1 sm:items-start";
 
@@ -100,7 +113,7 @@ export default function LogPengeluaranPage() {
         }
         if (changes.sub_pengeluaran_id !== undefined && changes.sub_pengeluaran_id !== row.sub_pengeluaran_id) {
           const items = itemsForSub(changes.sub_pengeluaran_id);
-          nextRow.bahan_baku_id = items.length === 1 ? items[0].id : "";
+          nextRow.bahan_baku_id = items.length === 1 && !isPersonalHomeRow(row.pengeluaran_id, changes.sub_pengeluaran_id) ? items[0].id : "";
           nextRow.qty = "";
         }
         return nextRow;
@@ -109,15 +122,15 @@ export default function LogPengeluaranPage() {
   };
 
   const save = async () => {
-    const invalidQtyRow = formRows.find((row) => row.bahan_baku_id && (!row.qty || Number(row.qty) <= 0));
+    const invalidQtyRow = formRows.find((row) => needsQty(row.pengeluaran_id, row.sub_pengeluaran_id, row.bahan_baku_id, bahanBakuMap.get(row.bahan_baku_id)) && (!row.qty || Number(row.qty) <= 0));
     if (invalidQtyRow) {
       const item = bahanBakuMap.get(invalidQtyRow.bahan_baku_id);
-      setError(`Jumlah ${item?.unit ?? "item"} wajib diisi untuk item bahan baku.`);
+      setError(isAirGallonRow(invalidQtyRow.pengeluaran_id, invalidQtyRow.sub_pengeluaran_id) && !item ? "Jumlah galon wajib diisi untuk pembelian Air." : `Jumlah ${item?.unit ?? "item"} wajib diisi untuk item bahan baku.`);
       return;
     }
     const rowsToSave = formRows
       .filter((row) => row.pengeluaran_id && row.jumlah && parsePrice(row.jumlah) > 0)
-      .map((row) => ({ tanggal, pengeluaran_id: row.pengeluaran_id, sub_pengeluaran_id: row.sub_pengeluaran_id || null, bahan_baku_id: row.bahan_baku_id || null, qty: row.bahan_baku_id ? Number(row.qty) || null : null, deskripsi: row.deskripsi.trim() || null, jumlah: parsePrice(row.jumlah) }));
+      .map((row) => ({ tanggal, pengeluaran_id: row.pengeluaran_id, sub_pengeluaran_id: row.sub_pengeluaran_id || null, bahan_baku_id: row.bahan_baku_id || null, qty: needsQty(row.pengeluaran_id, row.sub_pengeluaran_id, row.bahan_baku_id, bahanBakuMap.get(row.bahan_baku_id)) ? Number(row.qty) || null : null, deskripsi: row.deskripsi.trim() || null, jumlah: parsePrice(row.jumlah) }));
     if (rowsToSave.length === 0) {
       setError("Isi minimal satu kategori dengan jumlah lebih dari 0.");
       return;
@@ -146,14 +159,14 @@ export default function LogPengeluaranPage() {
       return;
     }
     const editingItem = editing.bahan_baku_id ? bahanBakuMap.get(editing.bahan_baku_id) : null;
-    if (editing.bahan_baku_id && (!editing.qty || Number(editing.qty) <= 0)) {
-      setError(`Jumlah ${editingItem?.unit ?? "item"} wajib diisi untuk item bahan baku.`);
+    if (needsQty(editing.pengeluaran_id, editing.sub_pengeluaran_id, editing.bahan_baku_id ?? "", editingItem ?? undefined) && (!editing.qty || Number(editing.qty) <= 0)) {
+      setError(isAirGallonRow(editing.pengeluaran_id, editing.sub_pengeluaran_id) && !editingItem ? "Jumlah galon wajib diisi untuk pembelian Air." : `Jumlah ${editingItem?.unit ?? "item"} wajib diisi untuk item bahan baku.`);
       return;
     }
     setHistoryAction(true);
     setError(null);
     const { data: userData } = await supabase.auth.getUser();
-    const { error: updateError } = await supabase.from("log_pengeluaran").update({ pengeluaran_id: editing.pengeluaran_id, sub_pengeluaran_id: editing.sub_pengeluaran_id || null, bahan_baku_id: editing.bahan_baku_id || null, qty: editing.bahan_baku_id ? Number(editing.qty) || null : null, deskripsi: editing.deskripsi?.trim() || null, jumlah: parsePrice(editing.jumlah), updated_by: userData.user?.id ?? null, updated_at: new Date().toISOString() }).eq("id", editing.id);
+    const { error: updateError } = await supabase.from("log_pengeluaran").update({ pengeluaran_id: editing.pengeluaran_id, sub_pengeluaran_id: editing.sub_pengeluaran_id || null, bahan_baku_id: editing.bahan_baku_id || null, qty: needsQty(editing.pengeluaran_id, editing.sub_pengeluaran_id, editing.bahan_baku_id ?? "", editingItem ?? undefined) ? Number(editing.qty) || null : null, deskripsi: editing.deskripsi?.trim() || null, jumlah: parsePrice(editing.jumlah), updated_by: userData.user?.id ?? null, updated_at: new Date().toISOString() }).eq("id", editing.id);
     if (updateError) setError(updateError.message);
     else { setEditing(null); await load(tanggal); }
     setHistoryAction(false);
@@ -173,6 +186,7 @@ export default function LogPengeluaranPage() {
   const editingSubCategories = editing?.pengeluaran_id ? subCategories.filter((category) => category.pengeluaran_id === editing.pengeluaran_id) : [];
   const editingItems = editing ? itemsForSub(editing.sub_pengeluaran_id ?? "") : [];
   const editingItem = editing?.bahan_baku_id ? bahanBakuMap.get(editing.bahan_baku_id) : null;
+  const editingIsAirGallon = editing ? isAirGallonRow(editing.pengeluaran_id, editing.sub_pengeluaran_id) : false;
 
   return (
     <main className="min-h-screen bg-zinc-50 px-3 py-4 text-zinc-900 sm:px-6 sm:py-6">
@@ -271,26 +285,30 @@ export default function LogPengeluaranPage() {
                     <option value="">Sub-kategori (opsional)</option>
                     {subCategories.filter((category) => category.pengeluaran_id === row.pengeluaran_id).map((category) => <option key={category.id} value={category.id}>{category.nama}</option>)}
                   </select>
-                  <div className={itemFieldsGridClass(itemsForSub(row.sub_pengeluaran_id).length, Boolean(row.bahan_baku_id))}>
+                  <div className={itemFieldsGridClass(itemsForSub(row.sub_pengeluaran_id).length, Boolean(row.bahan_baku_id), isPersonalHomeRow(row.pengeluaran_id, row.sub_pengeluaran_id))}>
                     {(() => {
                       const items = itemsForSub(row.sub_pengeluaran_id);
                       const item = bahanBakuMap.get(row.bahan_baku_id);
                       const isBahanBakuCategory = categoryNames.get(row.pengeluaran_id) === "Bahan Baku";
+                      const isAirGallon = isAirGallonRow(row.pengeluaran_id, row.sub_pengeluaran_id);
+                      const isPersonalHome = isPersonalHomeRow(row.pengeluaran_id, row.sub_pengeluaran_id);
                       return (
                         <>
-                          {row.sub_pengeluaran_id && items.length > 1 && (
+                          {row.sub_pengeluaran_id && (items.length > 1 || isPersonalHome) && (
                             <select value={row.bahan_baku_id} onChange={(event) => updateFormRow(row.key, { bahan_baku_id: event.target.value, qty: "" })} className="min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" aria-label="Item bahan baku">
                               <option value="">Pilih item bahan baku</option>
                               {items.map((option) => <option key={option.id} value={option.id}>{option.nama}</option>)}
                             </select>
                           )}
-                          {item && (
-                            <div className={items.length > 1 ? "sm:col-start-2 sm:row-start-1" : ""}>
+                          {item ? (
+                            <div className={items.length > 1 || isPersonalHome ? "sm:col-start-2 sm:row-start-1" : ""}>
                             <input placeholder={qtyLabel(item)} type="number" min="0" step="0.5" inputMode="decimal" value={row.qty} onChange={(event) => updateFormRow(row.key, { qty: event.target.value })} className="min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" />
                             {/* {item.berat_bersih && item.berat_bersih_satuan && <span className="block text-xs font-normal text-zinc-500">≈ {Number(row.qty || 0) * Number(item.berat_bersih)} {item.berat_bersih_satuan} total</span>} */}
                           {/* <label className="text-xs font-medium text-zinc-600">{qtyLabel(item)}</label> */}
                             </div>
-                          )}
+                          ) : isAirGallon ? (
+                            <input placeholder="Qty (galon)" type="number" min="0" step="1" inputMode="numeric" value={row.qty} onChange={(event) => updateFormRow(row.key, { qty: event.target.value })} className="min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" aria-label="Jumlah galon" />
+                          ) : null}
                           {isBahanBakuCategory && row.sub_pengeluaran_id && items.length === 0 && (
                             <p className="mt-2 text-xs text-amber-700">Belum ada item bahan baku aktif untuk sub-kategori ini. Periksa seed `ms_bahan_baku` dan akses RLS.</p>
                           )}
@@ -359,7 +377,7 @@ export default function LogPengeluaranPage() {
                     <select value={editing.pengeluaran_id} onChange={(event) => setEditing({ ...editing, pengeluaran_id: event.target.value, sub_pengeluaran_id: null, bahan_baku_id: null, qty: null })} className="min-h-11 rounded border border-zinc-300 px-3 text-sm" aria-label="Kategori pengeluaran edit">
                       {categories.map((category) => <option key={category.id} value={category.id}>{category.nama}</option>)}
                     </select>
-                    <select value={editing.sub_pengeluaran_id ?? ""} onChange={(event) => { const nextSubId = event.target.value || null; const items = itemsForSub(nextSubId ?? ""); setEditing({ ...editing, sub_pengeluaran_id: nextSubId, bahan_baku_id: items.length === 1 ? items[0].id : null, qty: null }); }} disabled={!editing.pengeluaran_id} className="min-h-11 rounded border border-zinc-300 px-3 text-sm disabled:cursor-not-allowed disabled:bg-zinc-100" aria-label="Sub-kategori pengeluaran edit">
+                    <select value={editing.sub_pengeluaran_id ?? ""} onChange={(event) => { const nextSubId = event.target.value || null; const items = itemsForSub(nextSubId ?? ""); setEditing({ ...editing, sub_pengeluaran_id: nextSubId, bahan_baku_id: items.length === 1 && !isPersonalHomeRow(editing.pengeluaran_id, nextSubId) ? items[0].id : null, qty: null }); }} disabled={!editing.pengeluaran_id} className="min-h-11 rounded border border-zinc-300 px-3 text-sm disabled:cursor-not-allowed disabled:bg-zinc-100" aria-label="Sub-kategori pengeluaran edit">
                       <option value="">Sub-kategori (opsional)</option>
                       {editingSubCategories.map((category) => <option key={category.id} value={category.id}>{category.nama}</option>)}
                     </select>
@@ -383,9 +401,9 @@ export default function LogPengeluaranPage() {
                       </button>
                     </div>
                     </div>
-                    <div className={itemFieldsGridClass(editingItems.length, Boolean(editing?.bahan_baku_id))}>
-                      {editing.sub_pengeluaran_id && editingItems.length > 1 && <select value={editing.bahan_baku_id ?? ""} onChange={(event) => setEditing({ ...editing, bahan_baku_id: event.target.value || null, qty: null })} className="min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" aria-label="Item bahan baku edit"><option value="">Pilih item bahan baku</option>{editingItems.map((item) => <option key={item.id} value={item.id}>{item.nama}</option>)}</select>}
-                      {editingItem && <label className="text-xs font-medium text-zinc-600">{qtyLabel(editingItem)}<input type="number" min="0" step="0.5" value={editing.qty ?? ""} onChange={(event) => setEditing({ ...editing, qty: event.target.value })} className="mt-1 min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" />{editingItem.berat_bersih && editingItem.berat_bersih_satuan && <span className="mt-1 block font-normal text-zinc-500">≈ {Number(editing.qty || 0) * Number(editingItem.berat_bersih)} {editingItem.berat_bersih_satuan} total</span>}</label>}
+                    <div className={itemFieldsGridClass(editingItems.length, Boolean(editing?.bahan_baku_id), Boolean(editing && isPersonalHomeRow(editing.pengeluaran_id, editing.sub_pengeluaran_id)))}>
+                      {editing.sub_pengeluaran_id && (editingItems.length > 1 || isPersonalHomeRow(editing.pengeluaran_id, editing.sub_pengeluaran_id)) && <select value={editing.bahan_baku_id ?? ""} onChange={(event) => setEditing({ ...editing, bahan_baku_id: event.target.value || null, qty: "" })} className="min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" aria-label="Item bahan baku edit"><option value="">Pilih item bahan baku</option>{editingItems.map((item) => <option key={item.id} value={item.id}>{item.nama}</option>)}</select>}
+                      {editingItem ? <label className={`${editingItems.length > 1 || isPersonalHomeRow(editing?.pengeluaran_id ?? "", editing?.sub_pengeluaran_id) ? "sm:col-start-2 sm:row-start-1 " : ""}text-xs font-medium text-zinc-600`}>{qtyLabel(editingItem)}<input type="number" min="0" step="0.5" value={editing.qty ?? ""} onChange={(event) => setEditing({ ...editing, qty: event.target.value })} className="mt-1 min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" />{editingItem.berat_bersih && editingItem.berat_bersih_satuan && <span className="mt-1 block font-normal text-zinc-500">≈ {Number(editing.qty || 0) * Number(editingItem.berat_bersih)} {editingItem.berat_bersih_satuan} total</span>}</label> : editingIsAirGallon ? <label className="text-xs font-medium text-zinc-600">Qty (galon)<input type="number" min="0" step="1" inputMode="numeric" value={editing.qty ?? ""} onChange={(event) => setEditing({ ...editing, qty: event.target.value })} className="mt-1 min-h-11 w-full rounded border border-zinc-300 px-3 text-sm" /></label> : null}
                     </div>
                   </div>
                 ) : (
