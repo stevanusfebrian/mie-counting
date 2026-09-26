@@ -44,6 +44,7 @@ export default function DashboardLabaRugiPage() {
   const [expenseTotals, setExpenseTotals] = useState<Record<string, number>>({});
   const [subExpenseTotals, setSubExpenseTotals] = useState<Record<string, Record<string, number>>>({});
   const [showSubKategori, setShowSubKategori] = useState(false);
+  const [showPersonalSubKategori, setShowPersonalSubKategori] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -402,15 +403,57 @@ export default function DashboardLabaRugiPage() {
               </div>
             </section>
             <section className="order-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:order-5">
-              <h2 className={`mb-2 text-base font-bold ${midText.lg}`}>
-                Pengambilan Pribadi
-              </h2>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className={`text-base font-bold ${midText.lg}`}>
+                  Pengambilan Pribadi
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-700">Detail Sub-Kategori</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-label="Detail Sub-Kategori Pribadi/Non-usaha"
+                    aria-checked={showPersonalSubKategori}
+                    onClick={() => setShowPersonalSubKategori((prev) => !prev)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${showPersonalSubKategori ? "bg-blue-600" : "bg-zinc-300"}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${showPersonalSubKategori ? "translate-x-6" : "translate-x-1"}`}
+                    />
+                  </button>
+                </div>
+              </div>
               <div className="divide-y divide-zinc-200">
-                {personalExpenses.map((category) => (
-                  <div key={category.id}>
-                    {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
-                  </div>
-                ))}
+                {personalExpenses.map((category) => {
+                  const personalSubCategories = subCategories.filter((sub) => sub.pengeluaran_id === category.id);
+                  const personalSubTotals = subExpenseTotals[category.id] ?? {};
+                  const showDetails = showPersonalSubKategori && category.nama === "Pribadi/Non-usaha" && personalSubCategories.length > 0;
+
+                  return (
+                    <div key={category.id}>
+                      {metricRow(category.nama, expenseTotals[category.id] ?? 0)}
+                      {showDetails && (
+                        <div className="pl-6">
+                          {personalSubCategories.map((subCategory) => (
+                            <div
+                              key={subCategory.id}
+                              className="flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-xs font-normal text-zinc-700 last:border-b-0"
+                            >
+                              <span>{subCategory.nama}</span>
+                              <span className="tabular-nums">{amount(personalSubTotals[subCategory.id] ?? 0)}</span>
+                            </div>
+                          ))}
+                          {(personalSubTotals.UNCATEGORIZED ?? 0) > 0 && (
+                            <div className="flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-xs font-normal text-zinc-700 last:border-b-0">
+                              <span>Tidak Berkategori</span>
+                              <span className="tabular-nums">{amount(personalSubTotals.UNCATEGORIZED)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {metricRow("Total Pengambilan Pribadi", totalPersonal, true)}
               </div>
             </section>
