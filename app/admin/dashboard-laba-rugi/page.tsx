@@ -8,7 +8,7 @@ import { midText } from "../../../lib/styles/responsive";
 type Preset = "today" | "week" | "month" | "custom";
 type Category = { id: string; nama: string };
 type SubCategory = { id: string; pengeluaran_id: string; nama: string };
-type ExpenseRow = { pengeluaran_id: string; sub_pengeluaran_id?: string | null; jumlah: number | string };
+type ExpenseRow = { pengeluaran_id: string; sub_pengeluaran_id?: string | null; jumlah: number | string; qty?: number | string | null; ms_bahan_baku?: { unit?: string | null } | null };
 type BahanBakuPurchase = { tanggal: string; qty: number | string | null; deskripsi?: string | null; bahan_baku_id: string | null };
 type AmountRow = { total?: number | string | null; margin?: number | string | null };
 
@@ -43,6 +43,7 @@ export default function DashboardLabaRugiPage() {
   const [consignmentQty, setConsignmentQty] = useState(0);
   const [expenseTotals, setExpenseTotals] = useState<Record<string, number>>({});
   const [subExpenseTotals, setSubExpenseTotals] = useState<Record<string, Record<string, number>>>({});
+  const [subExpenseQuantities, setSubExpenseQuantities] = useState<Record<string, Record<string, Record<string, number>>>>({});
   const [showSubKategori, setShowSubKategori] = useState(false);
   const [showPersonalSubKategori, setShowPersonalSubKategori] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,7 +64,7 @@ export default function DashboardLabaRugiPage() {
       supabase.from("ms_menu").select("id, kategori").eq("aktif", true),
       supabase.from("log_penjualan").select("menu_item_id, qty, total").gte("tanggal", startDate).lte("tanggal", endDate),
       supabase.from("log_titipan").select("margin, qty").gte("tanggal", startDate).lte("tanggal", endDate),
-      supabase.from("log_pengeluaran").select("pengeluaran_id, sub_pengeluaran_id, jumlah").gte("tanggal", startDate).lte("tanggal", endDate).eq("is_deleted", false),
+      supabase.from("log_pengeluaran").select("pengeluaran_id, sub_pengeluaran_id, jumlah, qty, ms_bahan_baku(unit)").gte("tanggal", startDate).lte("tanggal", endDate).eq("is_deleted", false),
       supabase.from("log_pengeluaran").select("tanggal, qty, deskripsi, bahan_baku_id, ms_bahan_baku!inner(nama, ms_sub_pengeluaran!inner(nama))").gte("tanggal", startDate).lte("tanggal", endDate).eq("is_deleted", false).eq("ms_bahan_baku.nama", "Ayam").eq("ms_bahan_baku.ms_sub_pengeluaran.nama", "Ayam").order("tanggal", { ascending: true }),
     ]);
     const fetchError = categoryError ?? subCategoryError ?? menuError ?? salesError ?? marginError ?? expenseError ?? ayamError;
@@ -81,6 +82,16 @@ export default function DashboardLabaRugiPage() {
       const subId = row.sub_pengeluaran_id ?? "UNCATEGORIZED";
       if (!result[catId]) result[catId] = {};
       result[catId][subId] = (result[catId][subId] ?? 0) + numberValue(row.jumlah);
+      return result;
+    }, {});
+    const subQuantities = ((expenseData ?? []) as ExpenseRow[]).reduce<Record<string, Record<string, Record<string, number>>>>((result, row) => {
+      if (row.qty === null || row.qty === undefined) return result;
+      const catId = row.pengeluaran_id;
+      const subId = row.sub_pengeluaran_id ?? "UNCATEGORIZED";
+      const unit = row.ms_bahan_baku?.unit?.trim() ?? "";
+      if (!result[catId]) result[catId] = {};
+      if (!result[catId][subId]) result[catId][subId] = {};
+      result[catId][subId][unit] = (result[catId][subId][unit] ?? 0) + numberValue(row.qty);
       return result;
     }, {});
     const menuCategoryMap = new Map((menuData ?? []).map((row) => [row.id, String(row.kategori ?? "").trim()]));
@@ -122,6 +133,7 @@ export default function DashboardLabaRugiPage() {
     setConsignmentQty(((marginData ?? []) as Array<{ qty?: number | string | null }>).reduce((sum, row) => sum + numberValue(row.qty), 0));
     setExpenseTotals(totals);
     setSubExpenseTotals(subTotals);
+    setSubExpenseQuantities(subQuantities);
     setLoading(false);
   }, [endDate, startDate, validRange]);
 
@@ -173,6 +185,12 @@ export default function DashboardLabaRugiPage() {
       <span className="shrink-0 tabular-nums">{amount(value)}</span>
     </div>
   );
+  const quantityDetails = (categoryId: string, subCategoryId: string) =>
+    Object.entries(subExpenseQuantities[categoryId]?.[subCategoryId] ?? {}).map(([unit, qty]) => (
+      <span key={unit} className="tabular-nums">
+        ({qty.toLocaleString("id-ID", { maximumFractionDigits: 2 })}{unit ? ` ${unit}` : ""})
+      </span>
+    ));
 
   return (
     <main className="min-h-screen bg-[#f5f7f4] px-3 py-4 text-zinc-900 sm:px-6 sm:py-7">
@@ -385,9 +403,12 @@ export default function DashboardLabaRugiPage() {
                             return (
                               <div
                                 key={subId}
-                                className="flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-xs font-normal text-zinc-00 last:border-b-0"
+                                className="flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-xs font-normal text-zinc-700 last:border-b-0"
                               >
-                                <span>{label}</span>
+                                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                                  <span>{label}</span>
+                                  {quantityDetails(category.id, subId)}
+                                </div>
                                 <span className="tabular-nums">{amount(total)}</span>
                               </div>
                             );
@@ -439,13 +460,19 @@ export default function DashboardLabaRugiPage() {
                               key={subCategory.id}
                               className="flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-xs font-normal text-zinc-700 last:border-b-0"
                             >
-                              <span>{subCategory.nama}</span>
+                              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                                <span>{subCategory.nama}</span>
+                                {quantityDetails(category.id, subCategory.id)}
+                              </div>
                               <span className="tabular-nums">{amount(personalSubTotals[subCategory.id] ?? 0)}</span>
                             </div>
                           ))}
                           {(personalSubTotals.UNCATEGORIZED ?? 0) > 0 && (
                             <div className="flex items-center justify-between gap-4 border-b border-zinc-100 py-1 text-xs font-normal text-zinc-700 last:border-b-0">
-                              <span>Tidak Berkategori</span>
+                              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                                <span>Tidak Berkategori</span>
+                                {quantityDetails(category.id, "UNCATEGORIZED")}
+                              </div>
                               <span className="tabular-nums">{amount(personalSubTotals.UNCATEGORIZED)}</span>
                             </div>
                           )}
